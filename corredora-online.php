@@ -3,9 +3,9 @@
 Plugin Name: Corredora Online
 Plugin URI: https://github.com/Corredora-Online/WP-Connect
 Description: Un plugin personalizado para múltiples sitios web.
-Version: 1.0
+Version: 1.1
 Author: Corredora Online
-Author URI: http://tusitio.com/
+Author URI: https://corredoraonline.com/
 License: GPL2
 GitHub Plugin URI: https://github.com/Corredora-Online/WP-Connect
 GitHub Branch: main
@@ -17,19 +17,12 @@ if (!class_exists('Corredora_Online_Updater')) {
         private $plugin;
         private $basename;
         private $active;
-        private $username;
-        private $repository;
-        private $authorize_token;
-        private $github_response;
 
         public function __construct($file) {
             $this->file = $file;
             $this->plugin = plugin_basename($file);
             $this->basename = str_replace('/', '-', $this->plugin);
-            $this->active = is_plugin_active($this->plugin);
-            $this->username = 'Corredora-Online'; // Tu nombre de usuario en GitHub
-            $this->repository = 'WP-Connect'; // El nombre de tu repositorio en GitHub
-            $this->authorize_token = 'TU_TOKEN_DE_ACCESO'; // Reemplaza con tu token de acceso personal
+            $this->active = $this->is_plugin_active($this->plugin);
         }
 
         public function initialize() {
@@ -38,35 +31,25 @@ if (!class_exists('Corredora_Online_Updater')) {
             add_filter('upgrader_post_install', array($this, 'after_install'), 10, 3);
         }
 
+        private function is_plugin_active($plugin) {
+            return in_array($plugin, (array) get_option('active_plugins', array()));
+        }
+
         private function get_repository_info() {
-            if (is_null($this->github_response)) {
-                $request_uri = sprintf('https://api.github.com/repos/%s/%s/releases', $this->username, $this->repository);
+            $request_uri = 'https://api.github.com/repos/Corredora-Online/WP-Connect/releases';
+            $response = wp_remote_get($request_uri);
 
-                // Agregar encabezados de autorización si el token está presente
-                $args = array();
-                if (!empty($this->authorize_token)) {
-                    $args['headers'] = array(
-                        'Authorization' => 'Bearer ' . $this->authorize_token,
-                    );
-                }
-
-                // Hacer la solicitud a la API de GitHub
-                $response = wp_remote_get($request_uri, $args);
-
-                if (is_wp_error($response)) {
-                    return false; // Error en la solicitud
-                }
-
-                $response = json_decode(wp_remote_retrieve_body($response), true);
-
-                if (isset($response['message'])) {
-                    return false; // Error en la respuesta de la API
-                }
-
-                $this->github_response = $response;
+            if (is_wp_error($response)) {
+                return false; // Error en la solicitud
             }
 
-            return $this->github_response;
+            $response = json_decode(wp_remote_retrieve_body($response), true);
+
+            if (isset($response['message'])) {
+                return false; // Error en la respuesta de la API
+            }
+
+            return $response;
         }
 
         public function modify_transient($transient) {
@@ -108,7 +91,7 @@ if (!class_exists('Corredora_Online_Updater')) {
                     $result->name = $this->plugin;
                     $result->slug = $this->basename;
                     $result->version = $version;
-                    $result->author = '<a href="http://tusitio.com/">Corredora Online</a>';
+                    $result->author = '<a href="https://corredoraonline.com/">Corredora Online</a>';
                     $result->homepage = $this->plugin;
                     $result->download_link = $repository[0]['zipball_url'];
                     $result->sections = array(
