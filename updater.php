@@ -57,7 +57,8 @@ if (!class_exists('Corredora_Online_Updater')) {
             }
 
             $version = $repository[0]['tag_name'];
-            $new_version = version_compare($version, $transient->checked[$this->plugin], 'gt');
+            $current_version = $transient->checked[$this->plugin];
+            $new_version = version_compare($version, $current_version, 'gt');
 
             if ($new_version) {
                 $package = $repository[0]['zipball_url'];
