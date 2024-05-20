@@ -227,7 +227,7 @@ function verificar_autenticacion_api( $request ) {
     $api_key = get_option( 'api_key' );
     $api_key_received = $request->get_header( 'Authorization' );
 
-    if ( $api_key ==! $api_key_received ) {
+    if ( $api_key === $api_key_received ) {
         return true;
     } else {
         return new WP_Error( 'rest_forbidden', esc_html__( 'Acceso no autorizado.', 'text-domain' ), array( 'status' => 401 ) );
