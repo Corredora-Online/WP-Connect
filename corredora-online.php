@@ -17,18 +17,21 @@ if (!class_exists('Corredora_Online_Updater')) {
         private $plugin;
         private $basename;
         private $active;
+        private $error_message;
 
         public function __construct($file) {
             $this->file = $file;
             $this->plugin = plugin_basename($file);
             $this->basename = str_replace('/', '-', $this->plugin);
             $this->active = $this->is_plugin_active($this->plugin);
+            $this->error_message = '';
         }
 
         public function initialize() {
             add_filter('pre_set_site_transient_update_plugins', array($this, 'modify_transient'), 10, 1);
             add_filter('plugins_api', array($this, 'plugin_popup'), 10, 3);
             add_filter('upgrader_post_install', array($this, 'after_install'), 10, 3);
+            add_action('admin_notices', array($this, 'admin_notices'));
         }
 
         private function is_plugin_active($plugin) {
@@ -40,14 +43,16 @@ if (!class_exists('Corredora_Online_Updater')) {
             $response = wp_remote_get($request_uri);
 
             if (is_wp_error($response)) {
-                return false; // Error en la solicitud
+                $this->error_message = 'Error en la solicitud a GitHub: ' . $response->get_error_message();
+                return false;
             }
 
             $response_body = wp_remote_retrieve_body($response);
             $response_array = json_decode($response_body, true);
 
             if (!is_array($response_array) || empty($response_array)) {
-                return false; // No se pudo decodificar la respuesta JSON o está vacía
+                $this->error_message = 'No se pudo decodificar la respuesta JSON de GitHub o está vacía.';
+                return false;
             }
 
             return $response_array;
@@ -115,6 +120,12 @@ if (!class_exists('Corredora_Online_Updater')) {
             }
 
             return $result;
+        }
+
+        public function admin_notices() {
+            if (!empty($this->error_message)) {
+                echo '<div class="notice notice-error"><p>' . $this->error_message . '</p></div>';
+            }
         }
     }
 
