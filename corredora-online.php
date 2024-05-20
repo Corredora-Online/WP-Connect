@@ -3,7 +3,7 @@
 Plugin Name: Corredora Online
 Plugin URI: https://github.com/Corredora-Online/WP-Connect
 Description: Un plugin personalizado para múltiples sitios web.
-Version: 1.8
+Version: 1.3
 Author: Corredora Online
 Author URI: https://corredoraonline.com/
 License: GPL2
@@ -43,13 +43,14 @@ if (!class_exists('Corredora_Online_Updater')) {
                 return false; // Error en la solicitud
             }
 
-            $response = json_decode(wp_remote_retrieve_body($response), true);
+            $response_body = wp_remote_retrieve_body($response);
+            $response_array = json_decode($response_body, true);
 
-            if (isset($response['message'])) {
-                return false; // Error en la respuesta de la API
+            if (!is_array($response_array) || empty($response_array)) {
+                return false; // No se pudo decodificar la respuesta JSON o está vacía
             }
 
-            return $response;
+            return $response_array;
         }
 
         public function modify_transient($transient) {
@@ -58,7 +59,7 @@ if (!class_exists('Corredora_Online_Updater')) {
             }
 
             $repository = $this->get_repository_info();
-            if ($repository === false) {
+            if ($repository === false || !is_array($repository) || empty($repository[0]['tag_name'])) {
                 return $transient;
             }
 
