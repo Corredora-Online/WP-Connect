@@ -200,17 +200,9 @@ add_action( 'admin_notices', 'mostrar_mensaje_personalizado' );
 
 
 
+
+
 // Endpoint, Recover Data and Pulse
-
-
-
-
-
-
-
-
-
-
 // Función para registrar el endpoint como webhook o pulse
 function registrar_endpoint_personalizado() {
     register_rest_route( 'corredora-online/v1', '/pulse/', array(
@@ -233,12 +225,6 @@ function verificar_autenticacion_api( $request ) {
         return new WP_Error( 'rest_forbidden', esc_html__( 'Acceso no autorizado.', 'text-domain' ), array( 'status' => 401 ) );
     }
 }
-
-
-
-
-
-
 
 // Función para procesar la petición y actualizar las aseguradoras
 function procesar_peticion_endpoint_personalizado( $data ) {
@@ -268,7 +254,7 @@ function procesar_peticion_endpoint_personalizado( $data ) {
         return new WP_REST_Response( 'Error: Respuesta no válida de la API.', 500 );
     }
 
-    // Borrar todos los posts del CPT "aseguradoras"
+    // Borrar todos los posts del CPT "aseguradoras" y sus imágenes asociadas
     $aseguradoras = get_posts( array(
         'post_type' => 'aseguradoras',
         'numberposts' => -1,
@@ -276,6 +262,13 @@ function procesar_peticion_endpoint_personalizado( $data ) {
     ) );
 
     foreach ( $aseguradoras as $aseguradora ) {
+        // Obtener las imágenes adjuntas y eliminarlas
+        $attachments = get_attached_media( '', $aseguradora->ID );
+        foreach ( $attachments as $attachment ) {
+            wp_delete_attachment( $attachment->ID, true );
+        }
+
+        // Eliminar el post
         wp_delete_post( $aseguradora->ID, true );
     }
 
@@ -329,8 +322,6 @@ function procesar_peticion_endpoint_personalizado( $data ) {
 
     return new WP_REST_Response( 'OK', 200 );
 }
-
-
 
 
 ?>
