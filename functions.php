@@ -1,12 +1,11 @@
 <?php
 
 
-// Agrega un menú de administración personalizado para el plugin
+
 function add_custom_menu_page() {
     $plugin_dir_url = plugins_url('/', __FILE__);
     $icon_url = $plugin_dir_url . 'logotipo.png';
 
-    // Agregar página principal del plugin
     $page_title = 'Corredora Online';
     $menu_title = 'Corredora Online';
     $capability = 'manage_options';
@@ -18,7 +17,7 @@ function add_custom_menu_page() {
 
 add_action('admin_menu', 'add_custom_menu_page');
 
-// Crea la página de configuración en el backoffice
+
 function corredora_online_settings_page() {
     ?>
     <style>
@@ -67,7 +66,6 @@ function corredora_online_settings_page() {
     <?php
 }
 
-// Procesa el formulario
 function save_corredora_settings() {
     if (isset($_POST['submit'])) {
         $corredora_id = sanitize_text_field($_POST['corredora_id']);
@@ -130,11 +128,6 @@ add_action('admin_init', 'save_corredora_settings');
 
 
 
-
-
-
-
-
 add_action('admin_init', 'save_corredora_settings');
 
 function registrar_aseguradoras_custom_post_type() {
@@ -155,7 +148,7 @@ function registrar_aseguradoras_custom_post_type() {
         ),
         'publicly_queryable' => true,
         'show_ui'            => true,
-        'show_in_menu'       => false, // Cambiado a false para ocultarlo del menú lateral
+        'show_in_menu'       => true,
         'query_var'          => true,
         'rewrite'            => array( 'slug' => 'aseguradora' ),
         'capability_type'    => 'post',
@@ -170,10 +163,19 @@ function registrar_aseguradoras_custom_post_type() {
     register_post_type( 'aseguradoras', $args );
 }
 
-// Hook para registrar el Custom Post Type
 add_action( 'init', 'registrar_aseguradoras_custom_post_type' );
 
-// Función para mostrar el mensaje personalizado
+
+function registrar_campos_personalizados() {
+    register_post_meta('aseguradoras', 'id_aseguradora', array(
+        'type' => 'string',
+        'single' => true,
+        'show_in_rest' => true,
+    ));
+}
+add_action('init', 'registrar_campos_personalizados');
+
+
 function mostrar_mensaje_personalizado() {
     global $pagenow;
 
@@ -187,7 +189,6 @@ function mostrar_mensaje_personalizado() {
         }
     }
 
-    // Verifica si estamos en la página de listado de posts de "Aseguradoras"
     if ( $pagenow == 'edit.php' && isset( $_GET['post_type'] ) ) {
         $post_type = $_GET['post_type'];
 
@@ -201,20 +202,26 @@ add_action( 'admin_notices', 'mostrar_mensaje_personalizado' );
 
 
 
-
-// Endpoint, Recover Data and Pulse
 // Función para registrar el endpoint como webhook o pulse
 function registrar_endpoint_personalizado() {
-    register_rest_route( 'corredora-online/v1', '/pulse/', array(
+    register_rest_route('corredora-online/v1', '/pulse/', array(
         'methods'   => 'GET',
-        'callback'  => 'procesar_peticion_endpoint_personalizado',
+        'callback'  => function ($request) {
+            $rest_route = $request->get_param('restRoute');
+            if ($rest_route === 'udpAseguradoras') {
+                return procesar_peticion_endpoint_personalizado($request);
+            } elseif ($rest_route === 'udpInfoContacto') {
+                return procesar_peticion_contacto($request);
+            } else {
+                return new WP_REST_Response('OK', 200);
+            }
+        },
         'permission_callback' => 'verificar_autenticacion_api',
-    ) );
+    ));
 }
+add_action('rest_api_init', 'registrar_endpoint_personalizado');
 
-add_action( 'rest_api_init', 'registrar_endpoint_personalizado' );
 
-// Función de verificación de autenticación de la API KEY
 function verificar_autenticacion_api( $request ) {
     $api_key = get_option( 'api_key' );
     $api_key_received = $request->get_header( 'Authorization' );
@@ -226,13 +233,15 @@ function verificar_autenticacion_api( $request ) {
     }
 }
 
-// Función para procesar la petición y actualizar las aseguradoras
-function procesar_peticion_endpoint_personalizado( $data ) {
-    $corredora_id = get_option( 'corredora_id' );
-    $api_key = get_option( 'api_key' );
+
+
+
+function procesar_peticion_endpoint_personalizado($data) {
+    $corredora_id = get_option('corredora_id');
+    $api_key = get_option('api_key');
 
     $url = 'https://atm.novelty8.com/webhook/api/corredora-online/aseguradoras';
-    $url = add_query_arg( 'idc', $corredora_id, $url );
+    $url = add_query_arg('idc', $corredora_id, $url);
 
     $args = array(
         'headers' => array(
@@ -240,88 +249,164 @@ function procesar_peticion_endpoint_personalizado( $data ) {
         )
     );
 
-    $response = wp_remote_get( $url, $args );
+    $response = wp_remote_get($url, $args);
 
-    if ( is_wp_error( $response ) ) {
+    if (is_wp_error($response)) {
         $error_message = $response->get_error_message();
-        return new WP_REST_Response( "Error: $error_message", 500 );
+        return new WP_REST_Response("Error: $error_message", 500);
     }
 
-    $body = wp_remote_retrieve_body( $response );
-    $data = json_decode( $body, true );
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
 
-    if ( ! is_array( $data ) || ! isset( $data[0]['estado'] ) || $data[0]['estado'] !== 'exitoso' || ! isset( $data[0]['aseguradoras'] ) ) {
-        return new WP_REST_Response( 'Error: Respuesta no válida de la API.', 500 );
+    if (!is_array($data) || !isset($data[0]['estado']) || $data[0]['estado'] !== 'exitoso' || !isset($data[0]['aseguradoras'])) {
+        return new WP_REST_Response('Error: Respuesta no válida de la API.', 500);
     }
 
-    // Borrar todos los posts del CPT "aseguradoras" y sus imágenes asociadas
-    $aseguradoras = get_posts( array(
+    $aseguradoras_ids = array_map(function($aseguradora) {
+        return $aseguradora['id'];
+    }, $data[0]['aseguradoras']);
+
+    $existing_posts = get_posts(array(
         'post_type' => 'aseguradoras',
         'numberposts' => -1,
-        'post_status' => 'any'
-    ) );
+        'post_status' => 'any',
+    ));
 
-    foreach ( $aseguradoras as $aseguradora ) {
-        // Obtener las imágenes adjuntas y eliminarlas
-        $attachments = get_attached_media( '', $aseguradora->ID );
-        foreach ( $attachments as $attachment ) {
-            wp_delete_attachment( $attachment->ID, true );
+    foreach ($existing_posts as $post) {
+        $post_id = $post->ID;
+        $id_aseguradora = get_post_meta($post_id, 'id_aseguradora', true);
+
+        if (!in_array($id_aseguradora, $aseguradoras_ids)) {
+            $thumbnail_id = get_post_thumbnail_id($post_id);
+            if ($thumbnail_id) {
+                wp_delete_attachment($thumbnail_id, true);
+            }
+
+            wp_delete_post($post_id, true);
         }
-
-        // Eliminar el post
-        wp_delete_post( $aseguradora->ID, true );
     }
 
-    // Crear nuevos posts con la información recibida
-    foreach ( $data[0]['aseguradoras'] as $aseguradora ) {
-        $post_id = wp_insert_post( array(
-            'post_title' => wp_strip_all_tags( $aseguradora['nombre'] ),
+    // Crear o actualizar posts con la información recibida de la API
+    foreach ($data[0]['aseguradoras'] as $aseguradora) {
+        $id_aseguradora = $aseguradora['id'];
+
+        // Verificar si ya existe un post con el mismo id_aseguradora
+        $existing_post = get_posts(array(
             'post_type' => 'aseguradoras',
-            'post_status' => 'publish'
-        ) );
+            'meta_key' => 'id_aseguradora',
+            'meta_value' => $id_aseguradora,
+            'posts_per_page' => 1,
+        ));
 
-        if ( ! is_wp_error( $post_id ) ) {
-            // Descargar la imagen y establecerla como imagen destacada
-            $image_url = $aseguradora['logotipo'];
-            $image_name = basename( $image_url );
-            $upload = wp_upload_bits( $image_name, null, file_get_contents( $image_url ) );
+        if ($existing_post) {
+            $post_id = $existing_post[0]->ID;
+            wp_update_post(array(
+                'ID' => $post_id,
+                'post_title' => wp_strip_all_tags($aseguradora['nombre']),
+            ));
+        } else {
+            $post_id = wp_insert_post(array(
+                'post_title' => wp_strip_all_tags($aseguradora['nombre']),
+                'post_type' => 'aseguradoras',
+                'post_status' => 'publish'
+            ));
 
-            if ( isset( $upload['error'] ) && $upload['error'] !== false ) {
-                // Error al subir la imagen
-                wp_delete_post( $post_id, true );
-                continue;
+            if (!is_wp_error($post_id)) {
+                update_post_meta($post_id, 'id_aseguradora', $id_aseguradora);
             }
+        }
 
-            $file_path = $upload['file'];
-            $file_name = basename( $file_path );
-            $file_type = wp_check_filetype( $file_name, null );
-            $attachment_title = sanitize_file_name( pathinfo( $file_name, PATHINFO_FILENAME ) );
-            $wp_upload_dir = wp_upload_dir();
+        if (!empty($aseguradora['logotipo']) && !has_post_thumbnail($post_id)) {
+            $image_url = $aseguradora['logotipo'];
+            $image_name = basename($image_url);
+            $upload = wp_upload_bits($image_name, null, file_get_contents($image_url));
 
-            $attachment = array(
-                'guid'           => $wp_upload_dir['url'] . '/' . $file_name,
-                'post_mime_type' => $file_type['type'],
-                'post_title'     => $attachment_title,
-                'post_content'   => '',
-                'post_status'    => 'inherit'
-            );
+            if (!$upload['error']) {
+                $file_path = $upload['file'];
+                $file_name = basename($file_path);
+                $file_type = wp_check_filetype($file_name, null);
+                $attachment_title = sanitize_file_name(pathinfo($file_name, PATHINFO_FILENAME));
+                $wp_upload_dir = wp_upload_dir();
 
-            $attach_id = wp_insert_attachment( $attachment, $file_path, $post_id );
+                $attachment = array(
+                    'guid' => $wp_upload_dir['url'] . '/' . $file_name,
+                    'post_mime_type' => $file_type['type'],
+                    'post_title' => $attachment_title,
+                    'post_content' => '',
+                    'post_status' => 'inherit'
+                );
 
-            if ( ! is_wp_error( $attach_id ) ) {
-                require_once( ABSPATH . 'wp-admin/includes/image.php' );
-                $attach_data = wp_generate_attachment_metadata( $attach_id, $file_path );
-                wp_update_attachment_metadata( $attach_id, $attach_data );
-                set_post_thumbnail( $post_id, $attach_id );
+                $attach_id = wp_insert_attachment($attachment, $file_path, $post_id);
+
+                if (!is_wp_error($attach_id)) {
+                    require_once(ABSPATH . 'wp-admin/includes/image.php');
+                    $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
+                    wp_update_attachment_metadata($attach_id, $attach_data);
+                    set_post_thumbnail($post_id, $attach_id);
+                } else {
+                    if (!$existing_post) {
+                        wp_delete_post($post_id, true);
+                    }
+                }
             } else {
-                // Error al adjuntar la imagen
-                wp_delete_post( $post_id, true );
+                if (!$existing_post) {
+                    wp_delete_post($post_id, true);
+                }
             }
         }
     }
 
-    return new WP_REST_Response( 'OK', 200 );
+    return new WP_REST_Response('OK', 200);
 }
+
+
+// Función para procesar la petición y actualizar la información de contacto
+function procesar_peticion_contacto($request) {
+    // Obtener la API KEY y el ID de corredora guardados como opciones
+    $api_key = get_option('api_key');
+    $corredora_id = get_option('corredora_id');
+
+    // Construir la URL de la API con el ID de corredora
+    $url = 'https://atm.novelty8.com/webhook/api/corredora-online/corredora';
+    $url = add_query_arg(array('idc' => $corredora_id), $url);
+
+    // Configurar los argumentos para la solicitud HTTP
+    $args = array(
+        'headers' => array(
+            'X-API-KEY' => $api_key
+        )
+    );
+
+    // Realizar la solicitud HTTP
+    $response = wp_remote_get($url, $args);
+
+    // Verificar si ocurrió un error en la solicitud
+    if (is_wp_error($response)) {
+        $error_message = $response->get_error_message();
+        return new WP_REST_Response("Error: $error_message", 500);
+    }
+
+    // Decodificar la respuesta JSON
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    // Verificar si la respuesta es válida y contiene la información de contacto
+    if (!is_array($data) || !isset($data['estado']) || $data['estado'] !== 'exitoso' || !isset($data['data'])) {
+        return new WP_REST_Response('Error: Respuesta no válida de la API.', 500);
+    }
+
+    // Obtener el correo y el número de contacto de la respuesta
+    $correo_contacto = isset($data['data']['correo']) ? $data['data']['correo'] : '';
+    $numero_contacto = isset($data['data']['celular']) ? $data['data']['celular'] : '';
+
+    // Actualizar los valores de correo y número de contacto en las opciones
+    update_option('co-correo-contacto', $correo_contacto);
+    update_option('co-numero-contacto', $numero_contacto);
+
+    return new WP_REST_Response('OK', 200);
+}
+
 
 
 ?>
