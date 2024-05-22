@@ -262,7 +262,6 @@ function registrar_campos_personalizados() {
         'llegada',
         'comentarios',
         'destacar',
-        'archivar',
         'fecha'
     );
     
@@ -584,7 +583,7 @@ function procesar_peticion_valoraciones($data) {
             }
         }
 
-        $meta_fields = array('nombre', 'apellido', 'atencion', 'disposicion', 'contratacion', 'recomendacion', 'promedio', 'llegada', 'comentarios', 'destacar', 'archivar', 'fecha');
+        $meta_fields = array('nombre', 'apellido', 'atencion', 'disposicion', 'contratacion', 'recomendacion', 'promedio', 'llegada', 'comentarios', 'destacar', 'fecha');
 
         foreach ($meta_fields as $field) {
             update_post_meta($post_id, $field, $valoracion[$field]);
