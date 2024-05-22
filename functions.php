@@ -124,6 +124,30 @@ function save_corredora_settings() {
 add_action('admin_init', 'save_corredora_settings');
 
 
+function corredora_online_shortcode($atts) {
+    // Extraer el atributo 'mostrar' del shortcode
+    $atts = shortcode_atts(array(
+        'mostrar' => ''
+    ), $atts, 'Corredora_Online');
+
+    $mostrar = $atts['mostrar'];
+
+    // Obtener la información correspondiente según el valor del atributo 'mostrar'
+    if ($mostrar === 'correo') {
+        return get_option('co-correo-contacto', 'No disponible');
+    } elseif ($mostrar === 'numero') {
+        return get_option('co-numero-contacto', 'No disponible');
+    } elseif ($mostrar === 'año-actual') {
+        return date('Y');
+    } else {
+        return 'Parámetro no válido';
+    }
+}
+
+// Registrar el shortcode
+add_shortcode('Corredora_Online', 'corredora_online_shortcode');
+
+
 function registrar_aseguradoras_custom_post_type() {
     $args = array(
         'public'             => true,
@@ -150,9 +174,9 @@ function registrar_aseguradoras_custom_post_type() {
         'hierarchical'       => false,
         'menu_position'      => null,
         'supports'           => array( 'title', 'thumbnail' ),
-        'show_in_rest'       => false, // Habilitar soporte REST API
-        'rest_base'          => 'aseguradoras', // Nombre base para la ruta REST API
-        'rest_controller_class' => 'WP_REST_Posts_Controller', // Clase del controlador REST API
+        'show_in_rest'       => false,
+        'rest_base'          => 'aseguradoras',
+        'rest_controller_class' => 'WP_REST_Posts_Controller',
     );
     register_post_type( 'aseguradoras', $args );
 }
@@ -208,13 +232,13 @@ add_filter('post_row_actions', 'ocultar_botones_edicion_personalizados', 10, 2);
 
 
 function quitar_metaboxes_personalizados() {
-    remove_meta_box('submitdiv', 'valoraciones', 'side'); // Publicar/Actualizar
-    remove_meta_box('slugdiv', 'valoraciones', 'normal'); // Slug
-    remove_meta_box('authordiv', 'valoraciones', 'normal'); // Autor
+    remove_meta_box('submitdiv', 'valoraciones', 'side');
+    remove_meta_box('slugdiv', 'valoraciones', 'normal');
+    remove_meta_box('authordiv', 'valoraciones', 'normal');
 
-    remove_meta_box('submitdiv', 'aseguradoras', 'side'); // Publicar/Actualizar
-    remove_meta_box('slugdiv', 'aseguradoras', 'normal'); // Slug
-    remove_meta_box('authordiv', 'aseguradoras', 'normal'); // Autor
+    remove_meta_box('submitdiv', 'aseguradoras', 'side');
+    remove_meta_box('slugdiv', 'aseguradoras', 'normal');
+    remove_meta_box('authordiv', 'aseguradoras', 'normal');
 }
 add_action('add_meta_boxes', 'quitar_metaboxes_personalizados');
 
