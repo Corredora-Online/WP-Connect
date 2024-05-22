@@ -1,7 +1,5 @@
 <?php
 
-
-
 function add_custom_menu_page() {
     $plugin_dir_url = plugins_url('/', __FILE__);
     $icon_url = $plugin_dir_url . 'logotipo.png';
@@ -126,10 +124,6 @@ function save_corredora_settings() {
 add_action('admin_init', 'save_corredora_settings');
 
 
-
-
-add_action('admin_init', 'save_corredora_settings');
-
 function registrar_aseguradoras_custom_post_type() {
     $args = array(
         'public'             => true,
@@ -166,12 +160,95 @@ function registrar_aseguradoras_custom_post_type() {
 add_action( 'init', 'registrar_aseguradoras_custom_post_type' );
 
 
+function registrar_valoraciones_custom_post_type() {
+    $args = array(
+        'public'             => true,
+        'label'              => __('Valoraciones'),
+        'labels'             => array(
+            'name'               => __('Valoraciones'),
+            'singular_name'      => __('Valoración'),
+            'add_new'            => __('Agregar Nueva'),
+            'add_new_item'       => __('Agregar Nueva Valoración'),
+            'edit_item'          => __('Editar valoración'),
+            'new_item'           => __('Nueva valoración'),
+            'view_item'          => __('Ver valoración'),
+            'search_items'       => __('Buscar Valoraciones'),
+            'not_found'          => __('No se encontraron valoraciones'),
+            'not_found_in_trash' => __('No se encontraron valoraciones en la papelera')
+        ),
+        'publicly_queryable' => true,
+        'show_ui'            => true,
+        'show_in_menu'       => true,
+        'query_var'          => true,
+        'rewrite'            => array( 'slug' => 'valoracion' ),
+        'capability_type'    => 'post',
+        'has_archive'        => true,
+        'hierarchical'       => false,
+        'menu_position'      => null,
+        'supports'           => array( 'title', 'thumbnail' ),
+        'show_in_rest'       => true,
+        'rest_base'          => 'valoraciones',
+        'rest_controller_class' => 'WP_REST_Posts_Controller',
+    );
+    register_post_type( 'valoraciones', $args );
+}
+
+add_action( 'init', 'registrar_valoraciones_custom_post_type' );
+
+
+function ocultar_botones_edicion_personalizados($actions, $post) {
+    if ($post->post_type == 'valoraciones' || $post->post_type == 'aseguradoras') {
+        // Eliminar botones de edición y edición rápida
+        unset($actions['edit']);
+        unset($actions['inline hide-if-no-js']);
+    }
+    return $actions;
+}
+add_filter('post_row_actions', 'ocultar_botones_edicion_personalizados', 10, 2);
+
+
+function quitar_metaboxes_personalizados() {
+    remove_meta_box('submitdiv', 'valoraciones', 'side'); // Publicar/Actualizar
+    remove_meta_box('slugdiv', 'valoraciones', 'normal'); // Slug
+    remove_meta_box('authordiv', 'valoraciones', 'normal'); // Autor
+
+    remove_meta_box('submitdiv', 'aseguradoras', 'side'); // Publicar/Actualizar
+    remove_meta_box('slugdiv', 'aseguradoras', 'normal'); // Slug
+    remove_meta_box('authordiv', 'aseguradoras', 'normal'); // Autor
+}
+add_action('add_meta_boxes', 'quitar_metaboxes_personalizados');
+
+
 function registrar_campos_personalizados() {
     register_post_meta('aseguradoras', 'id_aseguradora', array(
         'type' => 'string',
         'single' => true,
-        'show_in_rest' => true,
+        'show_in_rest' => false,
     ));
+    
+    $campos_valoraciones = array(
+        'id',
+        'nombre',
+        'apellido',
+        'atencion',
+        'disposicion',
+        'contratacion',
+        'recomendacion',
+        'promedio',
+        'llegada',
+        'comentarios',
+        'destacar',
+        'visibilidad',
+        'fecha'
+    );
+    
+    foreach ($campos_valoraciones as $campo) {
+        register_post_meta('valoraciones', $campo, array(
+            'type' => 'string',
+            'single' => true,
+            'show_in_rest' => false,
+        ));
+    }
 }
 add_action('init', 'registrar_campos_personalizados');
 
@@ -179,20 +256,19 @@ add_action('init', 'registrar_campos_personalizados');
 function mostrar_mensaje_personalizado() {
     global $pagenow;
 
-    // Verifica si estamos en la página de edición de una publicación individual de "Aseguradoras"
     if ( $pagenow == 'post.php' && isset( $_GET['post'] ) ) {
         $post_id = $_GET['post'];
         $post_type = get_post_type( $post_id );
 
-        if ( $post_type == 'aseguradoras' ) {
-            echo '<div class="notice notice-error is-dismissible"><p>No modifique estos datos directamente. Hágalo a través de Corredora Online, ya que serán modificados semanalmente de manera automática.</p></div>';
+        if ( $post_type == 'aseguradoras' || 'valoraciones' ) {
+            echo '<div class="notice notice-error is-dismissible"><p>NO modifique estos datos directamente. Hágalo a través de Corredora Online, ya que serán modificados semanalmente de manera automática.</p></div>';
         }
     }
 
     if ( $pagenow == 'edit.php' && isset( $_GET['post_type'] ) ) {
         $post_type = $_GET['post_type'];
 
-        if ( $post_type == 'aseguradoras' ) {
+        if ( $post_type == 'aseguradoras' || 'valoraciones' ) {
             echo '<div class="notice notice-error"><p>No modifique estos datos directamente. Hágalo a través de Corredora Online, ya que serán modificados semanalmente de manera automática.</p></div>';
         }
     }
@@ -212,6 +288,8 @@ function registrar_endpoint_personalizado() {
                 return procesar_peticion_endpoint_personalizado($request);
             } elseif ($rest_route === 'udpInfoContacto') {
                 return procesar_peticion_contacto($request);
+            } elseif ($rest_route === 'udpValoraciones') {
+                return procesar_peticion_valoraciones($request);
             } else {
                 return new WP_REST_Response('OK', 200);
             }
@@ -407,6 +485,90 @@ function procesar_peticion_contacto($request) {
     return new WP_REST_Response('OK', 200);
 }
 
+
+function procesar_peticion_valoraciones($data) {
+    $corredora_id = get_option('corredora_id');
+    $api_key = get_option('api_key');
+
+    $url = 'https://atm.novelty8.com/webhook/api/corredora-online/valoraciones';
+    $url = add_query_arg('idc', $corredora_id, $url);
+
+    $args = array(
+        'headers' => array(
+            'X-API-KEY' => $api_key
+        )
+    );
+
+    $response = wp_remote_get($url, $args);
+
+    if (is_wp_error($response)) {
+        $error_message = $response->get_error_message();
+        return new WP_REST_Response("Error: $error_message", 500);
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    if (!is_array($data)) {
+        return new WP_REST_Response('Error: Respuesta no válida de la API.', 500);
+    }
+
+    $valoraciones_ids = array_map(function($valoracion) {
+        return $valoracion['id'];
+    }, $data);
+
+    $existing_posts = get_posts(array(
+        'post_type' => 'valoraciones',
+        'numberposts' => -1,
+        'post_status' => 'any',
+    ));
+
+    foreach ($existing_posts as $post) {
+        $post_id = $post->ID;
+        $id_valoracion = get_post_meta($post_id, 'id', true);
+
+        if (!in_array($id_valoracion, $valoraciones_ids)) {
+            wp_delete_post($post_id, true);
+        }
+    }
+
+    foreach ($data as $valoracion) {
+        $id_valoracion = $valoracion['id'];
+
+        $existing_post = get_posts(array(
+            'post_type' => 'valoraciones',
+            'meta_key' => 'id',
+            'meta_value' => $id_valoracion,
+            'posts_per_page' => 1,
+        ));
+
+        if ($existing_post) {
+            $post_id = $existing_post[0]->ID;
+            wp_update_post(array(
+                'ID' => $post_id,
+                'post_title' => wp_strip_all_tags($valoracion['nombre'] . ' ' . $valoracion['apellido']),
+            ));
+        } else {
+            $post_id = wp_insert_post(array(
+                'post_title' => wp_strip_all_tags($valoracion['nombre'] . ' ' . $valoracion['apellido']),
+                'post_type' => 'valoraciones',
+                'post_status' => 'publish'
+            ));
+
+            if (!is_wp_error($post_id)) {
+                update_post_meta($post_id, 'id', $id_valoracion);
+            }
+        }
+
+        $meta_fields = array('nombre', 'apellido', 'atencion', 'disposicion', 'contratacion', 'recomendacion', 'promedio', 'llegada', 'comentarios', 'destacar', 'visibilidad', 'fecha');
+
+        foreach ($meta_fields as $field) {
+            update_post_meta($post_id, $field, $valoracion[$field]);
+        }
+    }
+
+    return new WP_REST_Response('OK', 200);
+}
 
 
 ?>
