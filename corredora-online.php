@@ -3,7 +3,7 @@
 Plugin Name: Corredora Online
 Plugin URI: https://github.com/Corredora-Online/WP-Connect
 Description: Este plugin obtiene la información del sistema Corredora Online y procesa para ser mostrada en la página web.
-Version: 1.0.1
+Version: 1.0.2
 Author: Corredora Online
 Author URI: https://corredoraonline.com/
 License: GPL2
