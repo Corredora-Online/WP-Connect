@@ -602,7 +602,7 @@ function procesar_peticion_valoraciones($data) {
 
 
 // Función para mostrar el formulario del cotizador
-function corredora_online_shortcode($atts)
+function corredora_online_cotizador($atts)
 {
 	
     // Extraer los atributos del shortcode
@@ -1133,7 +1133,7 @@ function corredora_online_shortcode($atts)
         return '<p>No se ha encontrado la opción solicitada.</p>';
     }
 }
-add_shortcode('Corredora_Online', 'corredora_online_shortcode');
+add_shortcode('Corredora_Online', 'corredora_online_cotizador');
 
 
 
