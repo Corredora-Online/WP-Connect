@@ -594,4 +594,547 @@ function procesar_peticion_valoraciones($data) {
 }
 
 
+
+
+
+
+//Shortcode COTIZADOR ONLINE
+
+
+// Función para mostrar el formulario del cotizador
+function corredora_online_shortcode($atts)
+{
+	
+    // Extraer los atributos del shortcode
+    $atts = shortcode_atts(
+        array(
+            'mostrar' => '',
+        ),
+        $atts,
+        'Corredora_Online'
+    );
+
+    // Verificar el atributo 'mostrar'
+    if ($atts['mostrar'] === 'cotizador') {
+    
+    $comunasPorRegion = array(
+    'Arica y Parinacota' => ['Arica', 'Camarones', 'Putre', 'General Lagos'],
+    'Tarapacá' => ['Iquique', 'Alto Hospicio', 'Pozo Almonte', 'Camiña', 'Colchane', 'Huara', 'Pica'],
+    'Antofagasta' => ['Antofagasta', 'Mejillones', 'Sierra Gorda', 'Taltal', 'Calama', 'Ollagüe', 'San Pedro de Atacama', 'María Elena', 'Tocopilla'],
+    'Atacama' => ['Copiapó', 'Caldera', 'Tierra Amarilla', 'Chañaral', 'Diego de Almagro', 'Vallenar', 'Alto del Carmen', 'Freirina', 'Huasco'],
+    'Coquimbo' => ['La Serena', 'Coquimbo', 'Andacollo', 'La Higuera', 'Paiguano', 'Vicuña', 'Illapel', 'Canela', 'Los Vilos', 'Salamanca', 'Ovalle', 'Combarbalá', 'Monte Patria', 'Punitaqui', 'Río Hurtado'],
+    'Valparaíso' => ['Valparaíso', 'Casablanca', 'Concón', 'Juan Fernández', 'Puchuncaví', 'Quintero', 'Viña del Mar', 'Isla de Pascua', 'Los Andes', 'Calle Larga', 'Rinconada', 'San Esteban', 'La Ligua', 'Cabildo', 'Papudo', 'Petorca', 'Zapallar', 'Quillota', 'Calera', 'Hijuelas', 'La Cruz', 'Nogales', 'San Antonio', 'Algarrobo', 'Cartagena', 'El Quisco', 'El Tabo', 'Santo Domingo', 'San Felipe', 'Catemu', 'Llaillay', 'Panquehue', 'Putaendo', 'Santa María', 'Quilpué', 'Limache', 'Olmué', 'Villa Alemana'],
+    'Metropolitana de Santiago' => ['Santiago', 'Cerrillos', 'Cerro Navia', 'Conchalí', 'El Bosque', 'Estación Central', 'Huechuraba', 'Independencia', 'La Cisterna', 'La Florida', 'La Granja', 'La Pintana', 'La Reina', 'Las Condes', 'Lo Barnechea', 'Lo Espejo', 'Lo Prado', 'Macul', 'Maipú', 'Ñuñoa', 'Pedro Aguirre Cerda', 'Peñalolén', 'Providencia', 'Pudahuel', 'Quilicura', 'Quinta Normal', 'Recoleta', 'Renca', 'San Joaquín', 'San Miguel', 'San Ramón', 'Vitacura', 'Puente Alto', 'Pirque', 'San José de Maipo', 'Colina', 'Lampa', 'Tiltil'],
+    'Libertador General Bernardo O’Higgins' => ['Rancagua', 'Codegua', 'Coinco', 'Coltauco', 'Doñihue', 'Graneros', 'Las Cabras', 'Machalí', 'Malloa', 'Mostazal', 'Olivar', 'Peumo', 'Pichidegua', 'Quinta de Tilcoco', 'Rengo', 'Requínoa', 'San Vicente', 'Pichilemu', 'La Estrella', 'Litueche', 'Marchihue', 'Navidad', 'Paredones', 'San Fernando', 'Chépica', 'Chimbarongo', 'Lolol', 'Nancagua', 'Palmilla', 'Peralillo', 'Placilla', 'Pumanque', 'Santa Cruz'],
+    'Maule' => ['Talca', 'Consitución', 'Curepto', 'Empedrado', 'Maule', 'Pelarco', 'Pencahue', 'Río Claro', 'San Clemente', 'San Rafael', 'Cauquenes', 'Chanco', 'Pelluhue', 'Curicó', 'Hualañé', 'Licantén', 'Molina', 'Rauco', 'Romeral', 'Sagrada Familia', 'Teno', 'Vichuquén', 'Linares', 'Colbún', 'Longaví', 'Parral', 'Retiro', 'San Javier', 'Villa Alegre', 'Yerbas Buenas'],
+    'Ñuble' => ['Chillán', 'Bulnes', 'Cobquecura', 'Coelemu', 'Coihueco', 'Chillán Viejo', 'El Carmen', 'Ninhue', 'Ñiquén', 'Pemuco', 'Pinto', 'Portezuelo', 'Quillón', 'Quirihue', 'Ránquil', 'San Carlos', 'San Fabián', 'San Ignacio', 'San Nicolás', 'Treguaco', 'Yungay'],
+    'Biobío' => ['Concepción', 'Coronel', 'Chiguayante', 'Florida', 'Hualqui', 'Lota', 'Penco', 'San Pedro de la Paz', 'Santa Juana', 'Talcahuano', 'Tomé', 'Hualpén', 'Lebu', 'Arauco', 'Cañete', 'Contulmo', 'Curanilahue', 'Los Álamos', 'Tirúa', 'Los Ángeles', 'Antuco', 'Cabrero', 'Laja', 'Mulchén', 'Nacimiento', 'Negrete', 'Quilaco', 'Quilleco', 'San Rosendo', 'Santa Bárbara', 'Tucapel', 'Yumbel', 'Alto Biobío'],
+    'La Araucanía' => ['Temuco', 'Carahue', 'Cunco', 'Curarrehue', 'Freire', 'Galvarino', 'Gorbea', 'Lautaro', 'Loncoche', 'Melipeuco', 'Nueva Imperial', 'Padre las Casas', 'Perquenco', 'Pitrufquén', 'Pucón', 'Saavedra', 'Teodoro Schmidt', 'Toltén', 'Vilcún', 'Villarrica', 'Cholchol', 'Angol', 'Collipulli', 'Curacautín', 'Ercilla', 'Lonquimay', 'Los Sauces', 'Lumaco', 'Purén', 'Renaico', 'Traiguén', 'Victoria'],
+    'Los Ríos' => ['Valdivia', 'Corral', 'Lanco', 'Los Lagos', 'Máfil', 'Mariquina', 'Paillaco', 'Panguipulli', 'La Unión', 'Futrono', 'Lago Ranco', 'Río Bueno'],
+    'Los Lagos' => ['Puerto Montt', 'Calbuco', 'Cochamó', 'Fresia', 'Frutillar', 'Los Muermos', 'Llanquihue', 'Maullín', 'Puerto Varas', 'Castro', 'Ancud', 'Chonchi', 'Curaco de Vélez', 'Dalcahue', 'Puqueldón', 'Queilén', 'Quellón', 'Quemchi', 'Quinchao', 'Osorno', 'Puerto Octay', 'Purranque', 'Puyehue', 'Río Negro', 'San Juan de la Costa', 'San Pablo', 'Chaitén', 'Futaleufú', 'Hualaihué', 'Palena'],
+    'Aysén del General Carlos Ibáñez del Campo' => ['Coyhaique', 'Lago Verde', 'Aysén', 'Cisnes', 'Guaitecas', 'Cochrane', 'O’Higgins', 'Tortel', 'Chile Chico', 'Río Ibáñez'],
+    'Magallanes y de la Antártica Chilena' => ['Punta Arenas', 'Laguna Blanca', 'Río Verde', 'San Gregorio', 'Cabo de Hornos', 'Antártica', 'Porvenir', 'Primavera', 'Timaukel', 'Natales', 'Torres del Paine'],
+	);
+    
+        ob_start();
+        ?>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
+
+            .cotizador-form-container {
+                max-width: 400px;
+                margin: 0 auto;
+                padding: 60px 30px 50px 50px;
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                font-family: 'Nunito', sans-serif;
+            }
+
+            .cotizador-form-container label {
+                display: block;
+                margin-bottom: 6px;
+                font-size: 16px;
+                font-weight: 600;
+            }
+
+            .cotizador-form-container input[type="text"],
+            .cotizador-form-container input[type="email"],
+            .cotizador-form-container input[type="password"] {
+                width: calc(100% - 22px);
+                padding: 10px;
+                margin-bottom: 8px;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-sizing: border-box;
+                font-size: 16px;
+            }
+
+            .cotizador-form-container input[type="submit"],
+            .cotizador-form-container .next-step {
+                width: calc(100% - 20px);
+                padding: 14px;
+                margin-top: 4px;
+                background-color: #007bff;
+                border: none;
+                border-radius: 8px;
+                color: #fff;
+                font-size: 16px;
+                cursor: pointer;
+                font-family: 'Nunito', sans-serif;
+                font-weight: 600;
+            }
+
+            .cotizador-form-container input[type="submit"]:hover,
+            .cotizador-form-container .next-step:hover {
+                background-color: #0056b3;
+            }
+
+            .cotizador-form-container .form-footer {
+                text-align: center;
+                margin-top: 20px;
+            }
+
+            .cotizador-form-container .form-footer a {
+                color: #007bff;
+                text-decoration: none;
+            }
+
+            .cotizador-form-container .form-footer a:hover {
+                text-decoration: underline;
+            }
+
+            #patente {
+                text-transform: uppercase;
+            }
+
+            .step {
+                display: none;
+            }
+
+            .step.active {
+                display: block;
+            }
+
+            .steps {
+                display: flex;
+                justify-content: space-around;
+                margin-bottom: 30px;
+                width: calc(100% - 20px);
+            }
+
+            .steps div {
+                flex: 1;
+                padding: 8px;
+                text-align: center;
+                border: 1px solid #ccc;
+                cursor: pointer;
+                font-size: 14px;
+                color: #5F5F5F;
+                border-radius: 8px;
+                margin-right: 18px;
+            }
+            
+            .steps div:last-child {
+    			margin-right: 0; /* Eliminar el margen derecho de la última tab */
+			}
+
+            .steps div.active {
+            	cursor: default;
+                background-color: #F0F0F0;
+                border: 1px solid #F0F0F0;
+            }
+
+            .error-message {
+                color: red;
+                font-family: 'Nunito', sans-serif;
+                font-size: 13px;
+                margin-top: -1px;
+                margin-bottom: 7px;
+            }
+
+            .row {
+                display: flex;
+            }
+
+            .half {
+                flex: 1;
+                margin-right: 4px;
+                margin-top: -4px;
+                margin-bottom: -4px;
+            }
+
+            .half:last-child {
+                margin-right: 0;
+            }
+            .half.margin-bottom {
+    			margin-bottom: 19px;
+			}
+            .invalid-input {
+                border-color: red !important;
+            }
+            .wait-cursor {
+				cursor: wait !important;
+			}
+			select {
+    			all: unset;
+			}
+			.cotizador-form-container select {
+				width: calc(100% - 22px);
+				padding: 9px 14px;
+				margin-top: 2px;
+				margin-bottom: 8px;
+				border: 1px solid #ccc;
+				border-radius: 8px;
+				box-sizing: border-box;
+				font-size: 15px;
+			}
+        </style>
+        <div class="cotizador-form-container">
+            <div class="steps">
+                <div class="step-title active" data-step="1">1. Vehículo</div>
+                <div class="step-title" data-step="2">2. Contacto</div>
+            </div>
+            <form id="cotizador-form" action="<?php echo esc_url($_SERVER['REQUEST_URI']); ?>" method="post">
+                <div class="step active" data-step="1">
+                    <p>
+                        <label for="patente">Ingresa la patente</label>
+                        <input type="text" id="patente" name="patente" required placeholder="ABCD12">
+                        <span id="error-message" class="error-message" style="display: none;">La patente ingresada no es válida</span>
+                    </p>
+                    <p id="marca-field" style="display: none;">
+                        <label for="marca">Marca</label>
+                        <input type="text" id="marca" name="marca">
+                    </p>
+                    <p id="modelo-field" style="display: none;">
+                        <label for="modelo">Modelo</label>
+                        <input type="text" id="modelo" name="modelo">
+                    </p>
+                    <p id="año-field" style="display: none;">
+                        <label for="año">Año</label>
+                        <input type="text" id="año" name="año">
+                    </p>
+                    <p>
+                        <button type="button" class="next-step">Siguiente</button>
+                    </p>
+                </div>
+                <div class="step" data-step="2">
+                    <p>
+                        <label for="rut">RUT</label>
+                        <input type="text" id="rut" name="rut" required maxlength="12" placeholder="12.345.678-9">
+                        <span id="rut-error-message" class="error-message" style="display: none;">El RUT ingresado no es válido</span>
+                    </p>
+                    <div class="row">
+                        <p class="half margin-bottom" id="nombre-field" style="display: none;">
+                            <label for="nombre">Nombre</label>
+                            <input type="text" id="nombre" name="nombre" required>
+                        </p>
+                        <p class="half margin-bottom" id="apellido-field" style="display: none;">
+                            <label for="apellido">Apellido</label>
+                            <input type="text" id="apellido" name="apellido" required>
+                        </p>
+                    </div>
+                    <div class="row">
+    <p class="half">
+        <label for="region">Región</label>
+        <select id="region" name="region" required>
+            <option value="">Selecciona una región</option>
+            <option value="Arica y Parinacota">Región de Arica y Parinacota</option>
+            <option value="Tarapacá">Región de Tarapacá</option>
+            <option value="Antofagasta">Región de Antofagasta</option>
+            <option value="Atacama">Región de Atacama</option>
+            <option value="Coquimbo">Región de Coquimbo</option>
+            <option value="Valparaíso">Región de Valparaíso</option>
+            <option value="Metropolitana de Santiago">Región Metropolitana de Santiago</option>
+            <option value="Libertador General Bernardo O’Higgins">Región del Libertador General Bernardo O’Higgins</option>
+            <option value="Maule">Región del Maule</option>
+            <option value="Ñuble">Región de Ñuble</option>
+            <option value="Biobío">Región del Biobío</option>
+            <option value="La Araucanía">Región de La Araucanía</option>
+            <option value="Los Ríos">Región de Los Ríos</option>
+            <option value="Los Lagos">Región de Los Lagos</option>
+            <option value="Aysén del General Carlos Ibáñez del Campo">Región de Aysén del General Carlos Ibáñez del Campo</option>
+            <option value="Magallanes y de la Antártica Chilena">Región de Magallanes y de la Antártica Chilena</option>
+        </select>
+    </p>
+    <p class="half">
+    <label for="comuna">Comuna</label>
+    <select id="comuna" name="comuna" required>
+    </select>
+</p>
+</div>
+                    <p>
+                        <label for="correo">Correo</label>
+                        <input type="email" id="correo" name="correo" required placeholder="micorreo@gmail.com">
+                    </p>
+                    <p>
+                        <label for="telefono">Celular</label>
+                        <input type="text" id="telefono" name="telefono" required placeholder="+56911111111">
+                    </p>
+                    <p>
+                        <input type="submit" name="submit" value="Cotizar online" id="submit-button" disabled>
+                    </p>
+                </div>
+            </form>
+        </div>
+        <script type="text/javascript">
+     	document.addEventListener('DOMContentLoaded', function () {
+    var patenteInput = document.getElementById('patente');
+    var errorMessage = document.getElementById('error-message');
+    var rutInput = document.getElementById('rut');
+    var rutErrorMessage = document.getElementById('rut-error-message');
+    var nombreField = document.getElementById('nombre-field');
+    var apellidoField = document.getElementById('apellido-field');
+    var timeout = null;
+    var isPatenteValid = false;
+    var isRUTValid = false;
+    var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
+
+    function validarRUT(rut) {
+        rut = rut.replace(/[.-]/g, '');
+        const dv = rut.slice(-1);
+        const rutCuerpo = rut.slice(0, -1);
+        let suma = 0;
+        let multiplicador = 2;
+        
+        for (let i = rutCuerpo.length - 1; i >= 0; i--) {
+            suma += parseInt(rutCuerpo.charAt(i)) * multiplicador;
+            multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+        }
+        
+        const dvCalculado = 11 - (suma % 11);
+        const dvEsperado = dvCalculado === 11 ? '0' : dvCalculado === 10 ? 'K' : dvCalculado.toString();
+        
+        return dv.toUpperCase() === dvEsperado;
+    }
+
+    rutInput.addEventListener('input', function () {
+        var rut = this.value.trim().replace(/\./g, '').replace('-', '');
+        if (rut.length > 1) {
+            rut = rut.replace(/^(\d{1,9})(\d{3})(\d{3})(\w{1})$/, '$1.$2.$3-$4');
+        }
+        this.value = rut;
+    });
+
+    document.getElementById('region').addEventListener('change', function() {
+        var region = this.value;
+        var comunaSelect = document.getElementById('comuna');
+        comunaSelect.innerHTML = ''; // Limpiar opciones anteriores
+        
+        if (region) {
+            var comunas = comunasPorRegion[region];
+            if (comunas && comunas.length > 0) {
+                comunas.forEach(function(comuna) {
+                    var option = document.createElement('option');
+                    option.value = comuna;
+                    option.textContent = comuna;
+                    comunaSelect.appendChild(option);
+                });
+            }
+        }
+    });
+    
+    patenteInput.addEventListener('input', function () {
+        clearTimeout(timeout);
+
+        if (this.value.replace(/-/g, '').length >= 4) {
+            timeout = setTimeout(function () {
+                var patente = patenteInput.value;
+                if (patente) {
+                    document.body.classList.add('wait-cursor');
+
+                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            document.body.classList.remove('wait-cursor');
+
+                            if (data.estado === "exitoso") {
+                                document.getElementById('marca').value = data.data.marca;
+                                document.getElementById('modelo').value = data.data.modelo;
+                                document.getElementById('año').value = data.data.año;
+                                errorMessage.style.display = 'none';
+                                patenteInput.classList.remove('invalid-input');
+                                isPatenteValid = true;
+                                enableSubmitButton();
+                                showFields(['marca-field', 'modelo-field', 'año-field']);
+                            } else {
+                                errorMessage.textContent = 'La patente ingresada no es válida';
+                                errorMessage.style.display = 'block';
+                                patenteInput.classList.add('invalid-input');
+                                isPatenteValid = false;
+                                enableSubmitButton();
+                                hideFields(['marca-field', 'modelo-field', 'año-field']);
+                            }
+                        })
+                        .catch(error => {
+                            document.body.classList.remove('wait-cursor');
+                            console.error('Error al obtener los datos del vehículo:', error);
+                        });
+                }
+            }, 1000);
+        }
+    });
+
+    rutInput.addEventListener('input', function () {
+        clearTimeout(timeout);
+
+        if (this.value.replace(/[\.\-]/g, '').length >= 8) {
+            timeout = setTimeout(function () {
+                var rut = rutInput.value.replace(/[\.\-]/g, '');
+                if (rut && validarRUT(rut)) {
+                    document.body.classList.add('wait-cursor');
+
+                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            document.body.classList.remove('wait-cursor');
+
+                            if (data.estado === "exitoso") {
+                                if (data.data.nombre === "**" || !data.data.nombre) {
+                                    nombreField.style.display = 'block';
+                                    apellidoField.style.display = 'block';
+                                    rutInput.classList.remove('invalid-input');
+                                } else {
+                                    isRUTValid = true;
+                                    nombreField.style.display = 'none';
+                                    apellidoField.style.display = 'none';
+                                    rutErrorMessage.style.display = 'none';
+                                    rutInput.classList.remove('invalid-input');
+                                }
+                            } else {
+                                nombreField.style.display = 'block';
+                                apellidoField.style.display = 'block';
+                                rutInput.classList.remove('invalid-input');
+                            }
+                            updateSubmitButton();
+                        })
+                        .catch(error => {
+                            document.body.classList.remove('wait-cursor');
+
+                            rutErrorMessage.textContent = 'Error al obtener información del RUT';
+                            rutErrorMessage.style.display = 'block';
+                            nombreField.style.display = 'none';
+                            apellidoField.style.display = 'none';
+                            rutInput.classList.add('invalid-input');
+                            isRUTValid = false;
+                            updateSubmitButton();
+                        });
+                } else {
+                    rutErrorMessage.textContent = 'El RUT ingresado no es válido';
+                    rutErrorMessage.style.display = 'block';
+                    nombreField.style.display = 'none';
+                    apellidoField.style.display = 'none';
+                    rutInput.classList.add('invalid-input');
+                    isRUTValid = false;
+                    updateSubmitButton();
+                }
+            }, 1000);
+        } else {
+            rutErrorMessage.style.display = 'none';
+            isRUTValid = false;
+            updateSubmitButton();
+        }
+    });
+
+    function updateSubmitButton() {
+        var submitButton = document.getElementById('submit-button');
+        if (isPatenteValid && isRUTValid) {
+            submitButton.disabled = false;
+        } else {
+            submitButton.disabled = true;
+        }
+    }
+
+    document.querySelector('.next-step').addEventListener('click', function () {
+        var valid = true;
+        document.querySelectorAll('.step[data-step="1"] [required]').forEach(function (input) {
+            if (!input.value) {
+                valid = false;
+                input.focus();
+            }
+        });
+
+        if (valid && isPatenteValid) {
+            document.querySelector('.step[data-step="1"]').classList.remove('active');
+            document.querySelector('.step[data-step="2"]').classList.add('active');
+
+            document.querySelector('.step-title[data-step="1"]').classList.remove('active');
+            document.querySelector('.step-title[data-step="2"]').classList.add('active');
+        }
+    });
+
+    document.querySelectorAll('.step-title').forEach(function (title) {
+        title.addEventListener('click', function () {
+            var step = parseInt(this.getAttribute('data-step'));
+            if (step <= currentStep) {
+                showStep(step);
+            }
+        });
+    });
+
+    function showStep(step) {
+        document.querySelectorAll('.step').forEach(function (stepElement) {
+            stepElement.classList.remove('active');
+        });
+        document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
+
+        document.querySelectorAll('.step-title').forEach(function (title) {
+            title.classList.remove('active');
+        });
+        document.querySelector('.step-title[data-step="' + step + '"]').classList.add('active');
+    }
+
+    function showFields(fields) {
+        fields.forEach(field => {
+            document.getElementById(field).style.display = 'block';
+        });
+    }
+
+    function hideFields(fields) {
+        fields.forEach(field => {
+            document.getElementById(field).style.display = 'none';
+        });
+    }
+
+    function enableSubmitButton() {
+        var submitButton = document.getElementById('submit-button');
+        if (isPatenteValid && isRUTValid) {
+            submitButton.disabled = false;
+        } else {
+            submitButton.disabled = true;
+        }
+    }
+
+    document.querySelector('.next-step').addEventListener('click', function () {
+        if (isPatenteValid) {
+            document.querySelector('.step[data-step="1"]').classList.remove('active');
+            document.querySelector('.step[data-step="2"]').classList.add('active');
+            document.querySelector('.step-title[data-step="1"]').classList.remove('active');
+            document.querySelector('.step-title[data-step="2"]').classList.add('active');
+        } else {
+            patenteInput.focus();
+            patenteInput.classList.add('invalid-input');
+            errorMessage.style.display = 'block';
+        }
+    });
+
+    document.querySelector('.step-title[data-step="1"]').addEventListener('click', function () {
+        document.querySelector('.step[data-step="1"]').classList.add('active');
+        document.querySelector('.step[data-step="2"]').classList.remove('active');
+        document.querySelector('.step-title[data-step="1"]').classList.add('active');
+        document.querySelector('.step-title[data-step="2"]').classList.remove('active');
+    });
+});
+        </script>
+        <?php
+        return ob_get_clean();
+    } else {
+        return '<p>No se ha encontrado la opción solicitada.</p>';
+    }
+}
+add_shortcode('Corredora_Online', 'corredora_online_shortcode');
+
+
+
 ?>
