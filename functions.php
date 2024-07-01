@@ -642,13 +642,7 @@ function corredora_online_cotizador($atts)
             @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
 
             .cotizador-form-container {
-                max-width: 400px;
-                margin: 0 auto;
-                padding: 60px 30px 50px 50px;
-                background: #fff;
-                border: 1px solid #e0e0e0;
-                border-radius: 20px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                padding: 0px 0px 0px 40px;
                 font-family: 'Nunito', sans-serif;
             }
 
