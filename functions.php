@@ -462,6 +462,8 @@ function procesar_peticion_endpoint_personalizado($data) {
 }
 
 
+
+
 // Función para procesar la petición y actualizar la información de contacto
 function procesar_peticion_contacto($request) {
     // Obtener la API KEY y el ID de corredora guardados como opciones
@@ -497,16 +499,23 @@ function procesar_peticion_contacto($request) {
         return new WP_REST_Response('Error: Respuesta no válida de la API.', 500);
     }
 
-    // Obtener el correo y el número de contacto de la respuesta
+    // Obtener los datos de la respuesta
     $correo_contacto = isset($data['data']['correo']) ? $data['data']['correo'] : '';
     $numero_contacto = isset($data['data']['celular']) ? $data['data']['celular'] : '';
+    $color_fondo = isset($data['data']['color-fondo']) ? $data['data']['color-fondo'] : '';
+    $color_texto = isset($data['data']['color-texto']) ? $data['data']['color-texto'] : '';
+    $border_radius = isset($data['data']['border-radius']) ? $data['data']['border-radius'] : '';
 
-    // Actualizar los valores de correo y número de contacto en las opciones
+    // Actualizar los valores en las opciones
     update_option('co-correo-contacto', $correo_contacto);
     update_option('co-numero-contacto', $numero_contacto);
+    update_option('co-color-fondo', $color_fondo);
+    update_option('co-color-texto', $color_texto);
+    update_option('co-border-radius', $border_radius);
 
     return new WP_REST_Response('OK', 200);
 }
+
 
 
 function procesar_peticion_valoraciones($data) {
@@ -636,6 +645,12 @@ function corredora_online_cotizador($atts)
     'Magallanes y de la Antártica Chilena' => ['Punta Arenas', 'Laguna Blanca', 'Río Verde', 'San Gregorio', 'Cabo de Hornos', 'Antártica', 'Porvenir', 'Primavera', 'Timaukel', 'Natales', 'Torres del Paine'],
 	);
     
+    
+    $color_fondo = get_option('co-color-fondo', '#52868E');
+    $color_texto = get_option('co-color-texto', '#ffffff');
+    $border_radius = get_option('co-border-radius', '8px'); 
+    
+    
         ob_start();
         ?>
         <style>
@@ -670,10 +685,10 @@ function corredora_online_cotizador($atts)
                 width: calc(100% - 20px);
                 padding: 14px;
                 margin-top: 4px;
-                background-color: #007bff;
+                background-color: <?php echo esc_attr($color_fondo); ?>;
                 border: none;
-                border-radius: 8px;
-                color: #fff;
+                border-radius: <?php echo esc_attr($border_radius); ?>;
+                color: <?php echo esc_attr($color_texto); ?>;
                 font-size: 16px;
                 cursor: pointer;
                 font-family: 'Nunito', sans-serif;
@@ -938,7 +953,14 @@ function corredora_online_cotizador($atts)
                 if (patente) {
                     document.body.classList.add('wait-cursor');
 
-                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}`)
+                    var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                    var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+
+                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}&idc=${corredoraId}`, {
+                        headers: {
+                            'X-API-KEY': apiKey
+                        }
+                    })
                         .then(response => response.json())
                         .then(data => {
                             document.body.classList.remove('wait-cursor');
@@ -978,8 +1000,16 @@ function corredora_online_cotizador($atts)
                 var rut = rutInput.value.replace(/[\.\-]/g, '');
                 if (rut && validarRUT(rut)) {
                     document.body.classList.add('wait-cursor');
+                    
+                    
+                    var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                    var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
 
-                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}`)
+                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}&idc=${corredoraId}`, {
+                        headers: {
+                            'X-API-KEY': apiKey
+                        }
+                    })
                         .then(response => response.json())
                         .then(data => {
                             document.body.classList.remove('wait-cursor');
