@@ -23,6 +23,16 @@ function corredora_online_settings_page() {
             padding-left: 20px;
             padding-right: 20px;
         }
+        
+        /* Estilos personalizados para el botón */
+        .custom-button {
+            font-family: 'Nunito', sans-serif !important;
+            color: #090909 !important;
+            background-color: #00DFC0 !important;
+            border-radius: 50px !important;
+            border: none !important;
+            width: 100%;
+        }
     </style>
     <div class="wrap custom-page">
         <h2 style="font-family: 'Nunito', sans-serif; margin-top: 20px; margin-bottom: 20px;">Corredora Online</h2>
@@ -50,17 +60,6 @@ function corredora_online_settings_page() {
             </div>
         </form>
     </div>
-    <style>
-        /* Estilos personalizados para el botón */
-        .custom-button {
-            font-family: 'Nunito', sans-serif !important;
-            color: #090909 !important;
-            background-color: #00DFC0 !important;
-            border-radius: 50px !important;
-            border: none !important;
-            width: 100%;
-        }
-    </style>
     <?php
 }
 
