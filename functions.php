@@ -35,7 +35,10 @@ function corredora_online_settings_page() {
         }
     </style>
     <div class="wrap custom-page">
-        <h2 style="font-family: 'Nunito', sans-serif; margin-top: 20px; margin-bottom: 20px;">Corredora Online</h2>
+        <h2 style="font-family: 'Nunito', sans-serif; margin-top: 20px; margin-bottom: 0px;">Corredora Online</h2>
+        <p style="font-family: 'Nunito', sans-serif; margin-top: 5px; margin-left: 1px; margin-bottom: 30px;">Nuestro plugin de Wordpress permite generar una conexión directa con el sistema, permitiendo editar la información de su web directo desde Corredora Online, además le entrega otras funcionalidades valiosas, encuentre mayor información en Configuración > Integraciones > Wordpress.</p>
+        
+        
         <?php
         // Verificar si el formulario se ha enviado y mostrar un mensaje de confirmación
         settings_errors('corredora-settings');
