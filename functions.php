@@ -622,7 +622,7 @@ function corredora_online_cotizador($atts)
             'mostrar' => '',
         ),
         $atts,
-        'Corredora_Online'
+        'Corredora_Online_Cotizador'
     );
 
     // Verificar el atributo 'mostrar'
@@ -1159,7 +1159,7 @@ function corredora_online_cotizador($atts)
         return '<p>No se ha encontrado la opción solicitada.</p>';
     }
 }
-add_shortcode('Corredora_Online', 'corredora_online_cotizador');
+add_shortcode('Corredora_Online_Cotizador', 'corredora_online_cotizador');
 
 
 
