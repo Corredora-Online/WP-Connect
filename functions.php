@@ -1,5 +1,10 @@
 <?php
 
+
+// -- ↕ Iniciación Código Page Back Office
+
+
+// Creación de la menu en el back office
 function add_custom_menu_page() {
     $plugin_dir_url = plugins_url('/', __FILE__);
     $icon_url = $plugin_dir_url . 'logotipo.png';
@@ -16,6 +21,7 @@ function add_custom_menu_page() {
 add_action('admin_menu', 'add_custom_menu_page');
 
 
+// Creación de la página en back office
 function corredora_online_settings_page() {
     ?>
     <style>
@@ -24,7 +30,6 @@ function corredora_online_settings_page() {
             padding-right: 20px;
         }
         
-        /* Estilos personalizados para el botón */
         .custom-button {
             font-family: 'Nunito', sans-serif !important;
             color: #090909 !important;
@@ -66,6 +71,30 @@ function corredora_online_settings_page() {
     <?php
 }
 
+
+
+// Creacion de la página frontend "Cotización"
+function crear_pagina_cotizacion() {
+    // Verificar si la página ya existe
+    $pagina = get_page_by_path('cot');
+    
+    if (!isset($pagina->ID)) {
+        // Definir los datos de la página
+        $pagina_data = array(
+            'post_title'   => 'Cotización',
+            'post_name'    => 'cot',
+            'post_content' => '[Corredora_Online_Cotizacion]',
+            'post_status'  => 'publish',
+            'post_type'    => 'page'
+        );
+        
+        // Insertar la página en la base de datos
+        wp_insert_post($pagina_data);
+    }
+}
+
+
+// Procesamiento del formulario de la página de Back Office
 function save_corredora_settings() {
     if (isset($_POST['submit'])) {
         $corredora_id = sanitize_text_field($_POST['corredora_id']);
@@ -102,6 +131,7 @@ function save_corredora_settings() {
                     // Guardar las opciones si la validación es exitosa
                     update_option('corredora_id', $corredora_id);
                     update_option('api_key', $api_key);
+                    crear_pagina_cotizacion();
                     
                     // Agregar un mensaje de confirmación
                     $message = 'La información ha sido guardada con éxito.';
@@ -126,15 +156,20 @@ function save_corredora_settings() {
 add_action('admin_init', 'save_corredora_settings');
 
 
+
+
+// -- ↕ Terminación Código Page Back Office
+// -- ↕ Iniciación Código Shortcode Corredora_Online
+
+
+// Shortcode [ Corredora_Online mostrar="xx" ] despliega información guardada en options
 function corredora_online_shortcode($atts) {
-    // Extraer el atributo 'mostrar' del shortcode
     $atts = shortcode_atts(array(
         'mostrar' => ''
     ), $atts, 'Corredora_Online');
 
     $mostrar = $atts['mostrar'];
 
-    // Obtener la información correspondiente según el valor del atributo 'mostrar'
     if ($mostrar === 'correo') {
         return get_option('co-correo-contacto', 'No disponible');
     } elseif ($mostrar === 'numero') {
@@ -146,10 +181,16 @@ function corredora_online_shortcode($atts) {
     }
 }
 
-// Registrar el shortcode
 add_shortcode('Corredora_Online', 'corredora_online_shortcode');
 
 
+
+
+// -- ↕ Terminación Código Shortcode Corredora_Online
+// -- ↕ Iniciación Código registro de CPTs ("Aseguradoras, Valoraciones"), Meta Fields y Hide Updates Elements
+
+
+// Registro de CPTs y Meta Fields
 function registrar_aseguradoras_custom_post_type() {
     $args = array(
         'public'             => true,
@@ -184,6 +225,39 @@ function registrar_aseguradoras_custom_post_type() {
 }
 
 add_action( 'init', 'registrar_aseguradoras_custom_post_type' );
+
+
+function registrar_campos_personalizados() {
+    register_post_meta('aseguradoras', 'id_aseguradora', array(
+        'type' => 'string',
+        'single' => true,
+        'show_in_rest' => false,
+    ));
+    
+    $campos_valoraciones = array(
+        'id',
+        'nombre',
+        'apellido',
+        'atencion',
+        'disposicion',
+        'contratacion',
+        'recomendacion',
+        'promedio',
+        'llegada',
+        'comentarios',
+        'destacar',
+        'fecha'
+    );
+    
+    foreach ($campos_valoraciones as $campo) {
+        register_post_meta('valoraciones', $campo, array(
+            'type' => 'string',
+            'single' => true,
+            'show_in_rest' => false,
+        ));
+    }
+}
+add_action('init', 'registrar_campos_personalizados');
 
 
 function registrar_valoraciones_custom_post_type() {
@@ -222,9 +296,10 @@ function registrar_valoraciones_custom_post_type() {
 add_action( 'init', 'registrar_valoraciones_custom_post_type' );
 
 
+// Eliminar botones de actualizar y edición rápida
 function ocultar_botones_edicion_personalizados($actions, $post) {
     if ($post->post_type == 'valoraciones' || $post->post_type == 'aseguradoras') {
-        // Eliminar botones de edición y edición rápida
+
         unset($actions['edit']);
         unset($actions['inline hide-if-no-js']);
     }
@@ -243,39 +318,6 @@ function quitar_metaboxes_personalizados() {
     remove_meta_box('authordiv', 'aseguradoras', 'normal');
 }
 add_action('add_meta_boxes', 'quitar_metaboxes_personalizados');
-
-
-function registrar_campos_personalizados() {
-    register_post_meta('aseguradoras', 'id_aseguradora', array(
-        'type' => 'string',
-        'single' => true,
-        'show_in_rest' => false,
-    ));
-    
-    $campos_valoraciones = array(
-        'id',
-        'nombre',
-        'apellido',
-        'atencion',
-        'disposicion',
-        'contratacion',
-        'recomendacion',
-        'promedio',
-        'llegada',
-        'comentarios',
-        'destacar',
-        'fecha'
-    );
-    
-    foreach ($campos_valoraciones as $campo) {
-        register_post_meta('valoraciones', $campo, array(
-            'type' => 'string',
-            'single' => true,
-            'show_in_rest' => false,
-        ));
-    }
-}
-add_action('init', 'registrar_campos_personalizados');
 
 
 function mostrar_mensaje_personalizado() {
@@ -303,7 +345,24 @@ add_action( 'admin_notices', 'mostrar_mensaje_personalizado' );
 
 
 
-// Función para registrar el endpoint como webhook o pulse
+// -- ↕ Terminación Código registro de CPTs ("Aseguradoras, Valoraciones"), Meta Fields y Hide Updates Elements
+// -- ↕ Iniciación Código API REST Updator Elements
+
+
+// Función de validación del API KEY para solicitudes entrantes
+function verificar_autenticacion_api( $request ) {
+    $api_key = get_option( 'api_key' );
+    $api_key_received = $request->get_header( 'Authorization' );
+
+    if ( $api_key === $api_key_received ) {
+        return true;
+    } else {
+        return new WP_Error( 'rest_forbidden', esc_html__( 'Acceso no autorizado.', 'text-domain' ), array( 'status' => 401 ) );
+    }
+}
+
+
+// Registro de endpoint "Pulse"
 function registrar_endpoint_personalizado() {
     register_rest_route('corredora-online/v1', '/pulse/', array(
         'methods'   => 'GET',
@@ -325,20 +384,7 @@ function registrar_endpoint_personalizado() {
 add_action('rest_api_init', 'registrar_endpoint_personalizado');
 
 
-function verificar_autenticacion_api( $request ) {
-    $api_key = get_option( 'api_key' );
-    $api_key_received = $request->get_header( 'Authorization' );
-
-    if ( $api_key === $api_key_received ) {
-        return true;
-    } else {
-        return new WP_Error( 'rest_forbidden', esc_html__( 'Acceso no autorizado.', 'text-domain' ), array( 'status' => 401 ) );
-    }
-}
-
-
-
-
+// Function para procesar solicitudes Pulse con query ?restRoute = "udpAseguradoras"
 function procesar_peticion_endpoint_personalizado($data) {
     $corredora_id = get_option('corredora_id');
     $api_key = get_option('api_key');
@@ -464,9 +510,7 @@ function procesar_peticion_endpoint_personalizado($data) {
 }
 
 
-
-
-// Función para procesar la petición y actualizar la información de contacto
+// Function para procesar solicitudes Pulse con query ?restRoute = "udpInfoContacto"
 function procesar_peticion_contacto($request) {
     // Obtener la API KEY y el ID de corredora guardados como opciones
     $api_key = get_option('api_key');
@@ -519,7 +563,7 @@ function procesar_peticion_contacto($request) {
 }
 
 
-
+// Function para procesar solicitudes Pulse con query ?restRoute = "udpValoraciones"
 function procesar_peticion_valoraciones($data) {
     $corredora_id = get_option('corredora_id');
     $api_key = get_option('api_key');
@@ -607,26 +651,14 @@ function procesar_peticion_valoraciones($data) {
 
 
 
-
-
-//Shortcode COTIZADOR ONLINE
+// -- ↕ Terminación Código API REST Updator Elements
+// -- ↕ Iniciación Código Shortcode [Corredora_Online_Cotizador]
 
 
 // Función para mostrar el formulario del cotizador
 function corredora_online_cotizador($atts)
 {
 	
-    // Extraer los atributos del shortcode
-    $atts = shortcode_atts(
-        array(
-            'mostrar' => '',
-        ),
-        $atts,
-        'Corredora_Online_Cotizador'
-    );
-
-    // Verificar el atributo 'mostrar'
-    if ($atts['mostrar'] === 'cotizador') {
     
     $comunasPorRegion = array(
     'Arica y Parinacota' => ['Arica', 'Camarones', 'Putre', 'General Lagos'],
@@ -646,16 +678,16 @@ function corredora_online_cotizador($atts)
     'Aysén del General Carlos Ibáñez del Campo' => ['Coyhaique', 'Lago Verde', 'Aysén', 'Cisnes', 'Guaitecas', 'Cochrane', 'O’Higgins', 'Tortel', 'Chile Chico', 'Río Ibáñez'],
     'Magallanes y de la Antártica Chilena' => ['Punta Arenas', 'Laguna Blanca', 'Río Verde', 'San Gregorio', 'Cabo de Hornos', 'Antártica', 'Porvenir', 'Primavera', 'Timaukel', 'Natales', 'Torres del Paine'],
 	);
-    
-    
     $color_fondo = get_option('co-color-fondo', '#52868E');
     $color_texto = get_option('co-color-texto', '#ffffff');
     $border_radius = get_option('co-border-radius', '8px'); 
     
     
-        ob_start();
-        ?>
-        <style>
+    ob_start();
+    ?>
+    
+
+    <style>
             @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
 
             .cotizador-form-container {
@@ -802,7 +834,9 @@ function corredora_online_cotizador($atts)
 				font-size: 15px;
 			}
         </style>
-        <div class="cotizador-form-container">
+        
+        
+    <div class="cotizador-form-container">
             <div class="steps">
                 <div class="step-title active" data-step="1">1. Vehículo</div>
                 <div class="step-title" data-step="2">2. Contacto</div>
@@ -847,9 +881,9 @@ function corredora_online_cotizador($atts)
                         </p>
                     </div>
                     <div class="row">
-    <p class="half">
-        <label for="region">Región</label>
-        <select id="region" name="region" required>
+    					<p class="half">
+        					<label for="region">Región</label>
+        					<select id="region" name="region" required>
             <option value="">Selecciona una región</option>
             <option value="Arica y Parinacota">Región de Arica y Parinacota</option>
             <option value="Tarapacá">Región de Tarapacá</option>
@@ -868,101 +902,102 @@ function corredora_online_cotizador($atts)
             <option value="Aysén del General Carlos Ibáñez del Campo">Región de Aysén del General Carlos Ibáñez del Campo</option>
             <option value="Magallanes y de la Antártica Chilena">Región de Magallanes y de la Antártica Chilena</option>
         </select>
-    </p>
-    <p class="half">
-    <label for="comuna">Comuna</label>
-    <select id="comuna" name="comuna" required>
-    </select>
-</p>
-</div>
-                    <p>
-                        <label for="correo">Correo</label>
-                        <input type="email" id="correo" name="correo" required placeholder="micorreo@gmail.com">
-                    </p>
-                    <p>
-                        <label for="telefono">Celular</label>
-                        <input type="text" id="telefono" name="telefono" required placeholder="+56911111111">
-                    </p>
-                    <p>
+    					</p>
+    					<p class="half">
+    						<label for="comuna">Comuna</label>
+    						<select id="comuna" name="comuna" required></select>
+						</p>
+					</div>
+                    	<p>
+                        	<label for="correo">Correo</label>
+                        	<input type="email" id="correo" name="correo" required placeholder="micorreo@gmail.com">
+                    	</p>
+                    	<p>
+                        	<label for="telefono">Celular</label>
+                        	<input type="text" id="telefono" name="telefono" required placeholder="+56911111111">
+                    	</p>
+                   		<p>
                         <input type="submit" name="submit" value="Cotizar online" id="submit-button" disabled>
-                    </p>
-                </div>
+                    	</p>
+                	</div>
             </form>
         </div>
-        <script type="text/javascript">
-     	document.addEventListener('DOMContentLoaded', function () {
-    var patenteInput = document.getElementById('patente');
-    var errorMessage = document.getElementById('error-message');
-    var rutInput = document.getElementById('rut');
-    var rutErrorMessage = document.getElementById('rut-error-message');
-    var nombreField = document.getElementById('nombre-field');
-    var apellidoField = document.getElementById('apellido-field');
-    var timeout = null;
-    var isPatenteValid = false;
-    var isRUTValid = false;
-    var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
+         
+        
+	<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        var patenteInput = document.getElementById('patente');
+        var errorMessage = document.getElementById('error-message');
+        var rutInput = document.getElementById('rut');
+        var rutErrorMessage = document.getElementById('rut-error-message');
+        var nombreField = document.getElementById('nombre-field');
+        var apellidoField = document.getElementById('apellido-field');
+        var timeout = null;
+        var isPatenteValid = false;
+        var isRUTValid = false;
+        var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
 
-    function validarRUT(rut) {
-        rut = rut.replace(/[.-]/g, '');
-        const dv = rut.slice(-1);
-        const rutCuerpo = rut.slice(0, -1);
-        let suma = 0;
-        let multiplicador = 2;
-        
-        for (let i = rutCuerpo.length - 1; i >= 0; i--) {
-            suma += parseInt(rutCuerpo.charAt(i)) * multiplicador;
-            multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
-        }
-        
-        const dvCalculado = 11 - (suma % 11);
-        const dvEsperado = dvCalculado === 11 ? '0' : dvCalculado === 10 ? 'K' : dvCalculado.toString();
-        
-        return dv.toUpperCase() === dvEsperado;
-    }
+        function validarRUT(rut) {
+            rut = rut.replace(/[.-]/g, '');
+            const dv = rut.slice(-1);
+            const rutCuerpo = rut.slice(0, -1);
+            let suma = 0;
+            let multiplicador = 2;
 
-    rutInput.addEventListener('input', function () {
-        var rut = this.value.trim().replace(/\./g, '').replace('-', '');
-        if (rut.length > 1) {
-            rut = rut.replace(/^(\d{1,9})(\d{3})(\d{3})(\w{1})$/, '$1.$2.$3-$4');
-        }
-        this.value = rut;
-    });
-
-    document.getElementById('region').addEventListener('change', function() {
-        var region = this.value;
-        var comunaSelect = document.getElementById('comuna');
-        comunaSelect.innerHTML = ''; // Limpiar opciones anteriores
-        
-        if (region) {
-            var comunas = comunasPorRegion[region];
-            if (comunas && comunas.length > 0) {
-                comunas.forEach(function(comuna) {
-                    var option = document.createElement('option');
-                    option.value = comuna;
-                    option.textContent = comuna;
-                    comunaSelect.appendChild(option);
-                });
+            for (let i = rutCuerpo.length - 1; i >= 0; i--) {
+                suma += parseInt(rutCuerpo.charAt(i)) * multiplicador;
+                multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
             }
+
+            const dvCalculado = 11 - (suma % 11);
+            const dvEsperado = dvCalculado === 11 ? '0' : dvCalculado === 10 ? 'K' : dvCalculado.toString();
+
+            return dv.toUpperCase() === dvEsperado;
         }
-    });
-    
-    patenteInput.addEventListener('input', function () {
-        clearTimeout(timeout);
 
-        if (this.value.replace(/-/g, '').length >= 4) {
-            timeout = setTimeout(function () {
-                var patente = patenteInput.value;
-                if (patente) {
-                    document.body.classList.add('wait-cursor');
+        rutInput.addEventListener('input', function () {
+            var rut = this.value.trim().replace(/\./g, '').replace('-', '');
+            if (rut.length > 1) {
+                rut = rut.replace(/^(\d{1,9})(\d{3})(\d{3})(\w{1})$/, '$1.$2.$3-$4');
+            }
+            this.value = rut;
+        });
 
-                    var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
-                    var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+        document.getElementById('region').addEventListener('change', function() {
+            var region = this.value;
+            var comunaSelect = document.getElementById('comuna');
+            comunaSelect.innerHTML = ''; // Limpiar opciones anteriores
 
-                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}&idc=${corredoraId}`, {
-                        headers: {
-                            'X-API-KEY': apiKey
-                        }
-                    })
+            if (region) {
+                var comunas = comunasPorRegion[region];
+                if (comunas && comunas.length > 0) {
+                    comunas.forEach(function(comuna) {
+                        var option = document.createElement('option');
+                        option.value = comuna;
+                        option.textContent = comuna;
+                        comunaSelect.appendChild(option);
+                    });
+                }
+            }
+        });
+
+        patenteInput.addEventListener('input', function () {
+            clearTimeout(timeout);
+
+            if (this.value.replace(/-/g, '').length >= 4) {
+                timeout = setTimeout(function () {
+                    var patente = patenteInput.value;
+                    if (patente) {
+                        document.body.classList.add('wait-cursor');
+
+                        var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                        var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+
+                        fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}&idc=${corredoraId}`, {
+                            headers: {
+                                'X-API-KEY': apiKey
+                            }
+                        })
                         .then(response => response.json())
                         .then(data => {
                             document.body.classList.remove('wait-cursor');
@@ -989,29 +1024,31 @@ function corredora_online_cotizador($atts)
                             document.body.classList.remove('wait-cursor');
                             console.error('Error al obtener los datos del vehículo:', error);
                         });
-                }
-            }, 1000);
-        }
-    });
+                    }
+                }, 1000);
+            }
+        });
 
-    rutInput.addEventListener('input', function () {
-        clearTimeout(timeout);
+        rutInput.addEventListener('input', function () {
+            clearTimeout(timeout);
 
-        if (this.value.replace(/[\.\-]/g, '').length >= 8) {
             timeout = setTimeout(function () {
-                var rut = rutInput.value.replace(/[\.\-]/g, '');
-                if (rut && validarRUT(rut)) {
-                    document.body.classList.add('wait-cursor');
-                    
-                    
-                    var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
-                    var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+                var rut = rutInput.value.trim().replace(/[\.\-]/g, '');
+                if (rut.length > 0) {
+                    if (validarRUT(rut)) {
+                        rutInput.classList.remove('invalid-input');
+                        rutErrorMessage.style.display = 'none';
+                        
+                        document.body.classList.add('wait-cursor');
 
-                    fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}&idc=${corredoraId}`, {
-                        headers: {
-                            'X-API-KEY': apiKey
-                        }
-                    })
+                        var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                        var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+
+                        fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}&idc=${corredoraId}`, {
+                            headers: {
+                                'X-API-KEY': apiKey
+                            }
+                        })
                         .then(response => response.json())
                         .then(data => {
                             document.body.classList.remove('wait-cursor');
@@ -1046,121 +1083,260 @@ function corredora_online_cotizador($atts)
                             isRUTValid = false;
                             updateSubmitButton();
                         });
+                    } else {
+                        rutErrorMessage.textContent = 'El RUT ingresado no es válido';
+                        rutErrorMessage.style.display = 'block';
+                        nombreField.style.display = 'none';
+                        apellidoField.style.display = 'none';
+                        rutInput.classList.add('invalid-input');
+                        isRUTValid = false;
+                        updateSubmitButton();
+                    }
                 } else {
-                    rutErrorMessage.textContent = 'El RUT ingresado no es válido';
-                    rutErrorMessage.style.display = 'block';
-                    nombreField.style.display = 'none';
-                    apellidoField.style.display = 'none';
-                    rutInput.classList.add('invalid-input');
+                    rutErrorMessage.style.display = 'none';
                     isRUTValid = false;
                     updateSubmitButton();
                 }
-            }, 1000);
-        } else {
-            rutErrorMessage.style.display = 'none';
-            isRUTValid = false;
-            updateSubmitButton();
-        }
-    });
+            }, 500); // Tiempo de espera reducido para mayor reactividad
+        });
 
-    function updateSubmitButton() {
-        var submitButton = document.getElementById('submit-button');
-        if (isPatenteValid && isRUTValid) {
-            submitButton.disabled = false;
-        } else {
-            submitButton.disabled = true;
+        function updateSubmitButton() {
+            var submitButton = document.getElementById('submit-button');
+            if (isPatenteValid && isRUTValid) {
+                submitButton.disabled = false;
+            } else {
+                submitButton.disabled = true;
+            }
         }
-    }
 
-    document.querySelector('.next-step').addEventListener('click', function () {
-        var valid = true;
-        document.querySelectorAll('.step[data-step="1"] [required]').forEach(function (input) {
-            if (!input.value) {
-                valid = false;
-                input.focus();
+        function enableSubmitButton() {
+            var submitButton = document.getElementById('submit-button');
+            if (isPatenteValid && isRUTValid) {
+                submitButton.disabled = false;
+            } else {
+                submitButton.disabled = true;
+            }
+        }
+
+        document.querySelector('.next-step').addEventListener('click', function () {
+            var valid = true;
+            document.querySelectorAll('.step[data-step="1"] [required]').forEach(function (input) {
+                if (!input.value) {
+                    valid = false;
+                    input.focus();
+                }
+            });
+
+            if (valid && isPatenteValid) {
+                document.querySelector('.step[data-step="1"]').classList.remove('active');
+                document.querySelector('.step[data-step="2"]').classList.add('active');
+
+                document.querySelector('.step-title[data-step="1"]').classList.remove('active');
+                document.querySelector('.step-title[data-step="2"]').classList.add('active');
             }
         });
-
-        if (valid && isPatenteValid) {
-            document.querySelector('.step[data-step="1"]').classList.remove('active');
-            document.querySelector('.step[data-step="2"]').classList.add('active');
-
-            document.querySelector('.step-title[data-step="1"]').classList.remove('active');
-            document.querySelector('.step-title[data-step="2"]').classList.add('active');
-        }
-    });
-
-    document.querySelectorAll('.step-title').forEach(function (title) {
-        title.addEventListener('click', function () {
-            var step = parseInt(this.getAttribute('data-step'));
-            if (step <= currentStep) {
-                showStep(step);
-            }
-        });
-    });
-
-    function showStep(step) {
-        document.querySelectorAll('.step').forEach(function (stepElement) {
-            stepElement.classList.remove('active');
-        });
-        document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
 
         document.querySelectorAll('.step-title').forEach(function (title) {
-            title.classList.remove('active');
+            title.addEventListener('click', function () {
+                var step = parseInt(this.getAttribute('data-step'));
+                if (step <= currentStep) {
+                    showStep(step);
+                }
+            });
         });
-        document.querySelector('.step-title[data-step="' + step + '"]').classList.add('active');
-    }
 
-    function showFields(fields) {
-        fields.forEach(field => {
-            document.getElementById(field).style.display = 'block';
-        });
-    }
+        function showStep(step) {
+            document.querySelectorAll('.step').forEach(function (stepElement) {
+                stepElement.classList.remove('active');
+            });
+            document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
 
-    function hideFields(fields) {
-        fields.forEach(field => {
-            document.getElementById(field).style.display = 'none';
-        });
-    }
+            document.querySelectorAll('.step-title').forEach(function (title) {
+                title.classList.remove('active');
+            });
+            document.querySelector('.step-title[data-step="' + step + '"]').classList.add('active');
+        }
 
-    function enableSubmitButton() {
-        var submitButton = document.getElementById('submit-button');
+        function showFields(fields) {
+            fields.forEach(field => {
+                document.getElementById(field).style.display = 'block';
+            });
+        }
+
+        function hideFields(fields) {
+            fields.forEach(field => {
+                document.getElementById(field).style.display = 'none';
+            });
+        }
+
+        document.getElementById('cotizador-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        console.log('Submit event triggered.');
+
         if (isPatenteValid && isRUTValid) {
-            submitButton.disabled = false;
-        } else {
-            submitButton.disabled = true;
-        }
-    }
+            var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+            var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+            var producto = "347";
+            var idVendedor = "29340";
+            
+            var data = {
+                producto: producto,
+                idc: corredoraId,
+                idVendedor: idVendedor,
+                patenteVehiculo: document.getElementById('patente').value,
+                marcaVehiculo: document.getElementById('marca').value,
+                modeloVehiculo: document.getElementById('modelo').value,
+                rut: document.getElementById('rut').value,
+                'tipo-cliente': 'natural',
+                nombre: document.getElementById('nombre').value,
+                apellido: document.getElementById('apellido').value,
+                email: document.getElementById('correo').value,
+                celular: document.getElementById('telefono').value
+            };
 
-    document.querySelector('.next-step').addEventListener('click', function () {
-        if (isPatenteValid) {
-            document.querySelector('.step[data-step="1"]').classList.remove('active');
-            document.querySelector('.step[data-step="2"]').classList.add('active');
-            document.querySelector('.step-title[data-step="1"]').classList.remove('active');
-            document.querySelector('.step-title[data-step="2"]').classList.add('active');
+            fetch('https://atm.novelty8.com/webhook/api/corredora-online/cotizaciones', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                console.log('Server response:', response);
+                return response.json();
+            })
+            .then(responseData => {
+                console.log('Response data:', responseData);
+                alert('Solicitud enviada con éxito.');
+            })
+            .catch(error => {
+                console.error('Error al enviar la solicitud:', error);
+                alert('Hubo un error al enviar la solicitud.');
+            });
         } else {
-            patenteInput.focus();
-            patenteInput.classList.add('invalid-input');
-            errorMessage.style.display = 'block';
+            alert('Por favor, completa correctamente todos los campos.');
         }
-    });
-
-    document.querySelector('.step-title[data-step="1"]').addEventListener('click', function () {
-        document.querySelector('.step[data-step="1"]').classList.add('active');
-        document.querySelector('.step[data-step="2"]').classList.remove('active');
-        document.querySelector('.step-title[data-step="1"]').classList.add('active');
-        document.querySelector('.step-title[data-step="2"]').classList.remove('active');
     });
 });
-        </script>
-        <?php
-        return ob_get_clean();
-    } else {
-        return '<p>No se ha encontrado la opción solicitada.</p>';
-    }
+</script>
+        
+        
+    <?php
+    return ob_get_clean();
+    
 }
+
 add_shortcode('Corredora_Online_Cotizador', 'corredora_online_cotizador');
 
 
+
+
+// -- ↕ Terminación Código Shortcode [Corredora_Online_Cotizador]
+// -- ↕ Iniciación Código Shortcode [Corredora_Online_Compañias]
+
+
+function slider_aseguradoras_shortcode() {
+    $args = array(
+        'post_type' => 'aseguradoras',
+        'posts_per_page' => -1,
+        'post_status' => 'publish',
+        'orderby' => 'title',
+		'order' => 'ASC'
+    );
+    $query = new WP_Query($args);
+
+    if ($query->have_posts()) {
+        $output = '<div class="slider-aseguradoras-container">
+                      <div class="slider-aseguradoras">';
+        
+        while ($query->have_posts()) {
+            $query->the_post();
+            if (has_post_thumbnail()) {
+                $image = get_the_post_thumbnail_url(get_the_ID(), 'full');
+                $output .= '<div class="slide">';
+                $output .= '<img src="' . esc_url($image) . '" alt="' . esc_attr(get_the_title()) . '" loading="lazy">';
+                $output .= '</div>';
+            }
+        }
+        
+        $output .= '</div></div>';
+        
+        wp_reset_postdata();
+        return $output;
+    } else {
+        return '<p>Configure las compañías con la que tiene código primero.</p>';
+    }
+}
+
+function slider_aseguradoras_assets() {
+    $custom_css = "
+    <style>
+        .slider-aseguradoras-container {
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            margin-left: -20px;
+        }
+        .slider-aseguradoras {
+            display: flex;
+            transition: transform 0.5s ease-in-out;
+        }
+        .slider-aseguradoras .slide {
+            flex: 0 0 calc(100% / 7 - 40px);
+            margin-right: 55px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .slider-aseguradoras img {
+            max-width: 100%;
+            max-height: 80px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+    </style>
+    ";
+    echo $custom_css;
+
+    $custom_js = "
+    <script>
+    jQuery(document).ready(function($) {
+        var slider = $('.slider-aseguradoras');
+        var slides = slider.find('.slide');
+        var slideCount = slides.length;
+        var visibleSlides = 7;
+        var currentIndex = 0;
+
+        function moveSlider() {
+            var translateValue = -currentIndex * (100 / visibleSlides) + '%';
+            slider.css('transform', 'translateX(' + translateValue + ')');
+        }
+
+        function nextSlide() {
+            currentIndex = (currentIndex + 1) % slideCount;
+            moveSlider();
+        }
+
+
+        slides.slice(0, visibleSlides).clone().appendTo(slider);
+
+        setInterval(nextSlide, 3000);
+    });
+    </script>
+    ";
+    echo $custom_js;
+}
+
+add_shortcode('Corredora_Online_Compañias', 'slider_aseguradoras_shortcode');
+
+add_action('wp_footer', 'slider_aseguradoras_assets');
+
+
+
+
+// -- ↕ Terminación Código Shortcode [Corredora_Online_Compañias]
+// -- ↕ --
 
 ?>
