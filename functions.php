@@ -1,5 +1,6 @@
 <?php
 
+// Refresh var to update status #2
 
 // -- ↕ Iniciación Código Page Back Office
 
@@ -697,7 +698,7 @@ function corredora_online_cotizador($atts)
 
             .cotizador-form-container label {
                 display: block;
-                margin-bottom: 6px;
+                margin-bottom: 8px;
                 font-size: 16px;
                 font-weight: 600;
             }
@@ -706,10 +707,10 @@ function corredora_online_cotizador($atts)
             .cotizador-form-container input[type="email"],
             .cotizador-form-container input[type="password"] {
                 width: calc(100% - 22px);
-                padding: 10px;
+                padding: 10px 16px;
                 margin-bottom: 8px;
                 border: 1px solid #ccc;
-                border-radius: 8px;
+                border-radius: <?php echo esc_attr($border_radius); ?>;
                 box-sizing: border-box;
                 font-size: 16px;
             }
@@ -780,7 +781,7 @@ function corredora_online_cotizador($atts)
             }
             
             .steps div:last-child {
-    			margin-right: 0; /* Eliminar el margen derecho de la última tab */
+    			margin-right: 0;
 			}
 
             .steps div.active {
@@ -829,13 +830,33 @@ function corredora_online_cotizador($atts)
 				margin-top: 2px;
 				margin-bottom: 8px;
 				border: 1px solid #ccc;
-				border-radius: 8px;
+				border-radius: <?php echo esc_attr($border_radius); ?>;
 				box-sizing: border-box;
 				font-size: 15px;
 			}
+			.spinner {
+        		border: 4px solid #f3f3f3;
+        		border-top: 4px solid #3498db;
+        		border-radius: 50%;
+        		width: 40px;
+        		height: 40px;
+        		animation: spin 1s linear infinite;
+        		margin: 0 auto 10px;
+    		} 
+    		@keyframes spin {
+        		0% { transform: rotate(0deg); }
+        		100% { transform: rotate(360deg); }
+    		}
         </style>
         
-        
+    
+    <div id="loading-indicator" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.8); z-index: 9999; border-radius: 20px;">
+    	<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+        	<div class="spinner"></div>
+        	<p>Cargando...</p>
+    	</div>
+	</div>
+    
     <div class="cotizador-form-container">
             <div class="steps">
                 <div class="step-title active" data-step="1">1. Vehículo</div>
@@ -880,8 +901,8 @@ function corredora_online_cotizador($atts)
                             <input type="text" id="apellido" name="apellido" required>
                         </p>
                     </div>
-                    <div class="row">
-    					<p class="half">
+                    <div class="row" style="margin-bottom: -8px;">
+    					<p class="half margin-bottom">
         					<label for="region">Región</label>
         					<select id="region" name="region" required>
             <option value="">Selecciona una región</option>
@@ -903,7 +924,7 @@ function corredora_online_cotizador($atts)
             <option value="Magallanes y de la Antártica Chilena">Región de Magallanes y de la Antártica Chilena</option>
         </select>
     					</p>
-    					<p class="half">
+    					<p class="half margin-bottom">
     						<label for="comuna">Comuna</label>
     						<select id="comuna" name="comuna" required></select>
 						</p>
@@ -936,6 +957,16 @@ function corredora_online_cotizador($atts)
         var isPatenteValid = false;
         var isRUTValid = false;
         var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
+        var nombreInput = document.getElementById('nombre');
+    	var apellidoInput = document.getElementById('apellido');
+
+		function showLoading() {
+        document.getElementById('loading-indicator').style.display = 'block';
+    	}
+    
+    	function hideLoading() {
+        document.getElementById('loading-indicator').style.display = 'none';
+   		}
 
         function validarRUT(rut) {
             rut = rut.replace(/[.-]/g, '');
@@ -988,6 +1019,7 @@ function corredora_online_cotizador($atts)
                 timeout = setTimeout(function () {
                     var patente = patenteInput.value;
                     if (patente) {
+                        showLoading();
                         document.body.classList.add('wait-cursor');
 
                         var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
@@ -1000,6 +1032,7 @@ function corredora_online_cotizador($atts)
                         })
                         .then(response => response.json())
                         .then(data => {
+                            hideLoading();
                             document.body.classList.remove('wait-cursor');
 
                             if (data.estado === "exitoso") {
@@ -1021,6 +1054,7 @@ function corredora_online_cotizador($atts)
                             }
                         })
                         .catch(error => {
+                            hideLoading();
                             document.body.classList.remove('wait-cursor');
                             console.error('Error al obtener los datos del vehículo:', error);
                         });
@@ -1036,6 +1070,7 @@ function corredora_online_cotizador($atts)
                 var rut = rutInput.value.trim().replace(/[\.\-]/g, '');
                 if (rut.length > 0) {
                     if (validarRUT(rut)) {
+                        showLoading();
                         rutInput.classList.remove('invalid-input');
                         rutErrorMessage.style.display = 'none';
                         
@@ -1051,6 +1086,7 @@ function corredora_online_cotizador($atts)
                         })
                         .then(response => response.json())
                         .then(data => {
+                            hideLoading();
                             document.body.classList.remove('wait-cursor');
 
                             if (data.estado === "exitoso") {
@@ -1058,8 +1094,12 @@ function corredora_online_cotizador($atts)
                                     nombreField.style.display = 'block';
                                     apellidoField.style.display = 'block';
                                     rutInput.classList.remove('invalid-input');
+                                    isRUTValid = true;
                                 } else {
                                     isRUTValid = true;
+                                    var nombreCompleto = data.data.nombre.split(' ');
+                                	nombreInput.value = nombreCompleto[0] || '';
+                                	apellidoInput.value = nombreCompleto.slice(1).join(' ') || '';
                                     nombreField.style.display = 'none';
                                     apellidoField.style.display = 'none';
                                     rutErrorMessage.style.display = 'none';
@@ -1069,10 +1109,12 @@ function corredora_online_cotizador($atts)
                                 nombreField.style.display = 'block';
                                 apellidoField.style.display = 'block';
                                 rutInput.classList.remove('invalid-input');
+                                isRUTValid = false;
                             }
                             updateSubmitButton();
                         })
                         .catch(error => {
+                            hideLoading();
                             document.body.classList.remove('wait-cursor');
 
                             rutErrorMessage.textContent = 'Error al obtener información del RUT';
@@ -1097,7 +1139,7 @@ function corredora_online_cotizador($atts)
                     isRUTValid = false;
                     updateSubmitButton();
                 }
-            }, 500); // Tiempo de espera reducido para mayor reactividad
+            }, 500);
         });
 
         function updateSubmitButton() {
@@ -1171,7 +1213,6 @@ function corredora_online_cotizador($atts)
 
         document.getElementById('cotizador-form').addEventListener('submit', function (event) {
         event.preventDefault();
-        console.log('Submit event triggered.');
 
         if (isPatenteValid && isRUTValid) {
             var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
@@ -1188,11 +1229,13 @@ function corredora_online_cotizador($atts)
                 modeloVehiculo: document.getElementById('modelo').value,
                 rut: document.getElementById('rut').value,
                 'tipo-cliente': 'natural',
-                nombre: document.getElementById('nombre').value,
-                apellido: document.getElementById('apellido').value,
+                nombre: nombreInput.value,
+                apellido: apellidoInput.value,
                 email: document.getElementById('correo').value,
                 celular: document.getElementById('telefono').value
             };
+            
+            showLoading();
 
             fetch('https://atm.novelty8.com/webhook/api/corredora-online/cotizaciones', {
                 method: 'POST',
@@ -1203,14 +1246,14 @@ function corredora_online_cotizador($atts)
                 body: JSON.stringify(data)
             })
             .then(response => {
-                console.log('Server response:', response);
                 return response.json();
             })
             .then(responseData => {
-                console.log('Response data:', responseData);
+            	hideLoading();
                 alert('Solicitud enviada con éxito.');
             })
             .catch(error => {
+            	hideLoading();
                 console.error('Error al enviar la solicitud:', error);
                 alert('Hubo un error al enviar la solicitud.');
             });
@@ -1337,6 +1380,102 @@ add_action('wp_footer', 'slider_aseguradoras_assets');
 
 
 // -- ↕ Terminación Código Shortcode [Corredora_Online_Compañias]
+// -- ↕ Iniciación Código Shortcode [Corredora_Online_Login]
+
+
+function corredora_online_login_shortcode($atts) {
+
+
+    $border_radius = get_option('co-border-radius', '10px');
+    $color_fondo = get_option('co-color-fondo', '#52868E');
+    $color_texto = get_option('co-color-texto', '#ffffff');
+
+
+    $html = '
+    <style>
+        form {
+            font-family: "Poppins", sans-serif;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 20px;
+            font-size: 17px;
+            border: 1px solid #ccc;
+            border-radius: ' . $border_radius . ';
+        }
+        .custom-button {
+            width: 100%;
+            background-color: ' . $color_fondo . ';
+            color: ' . $color_texto . ';
+            padding: 15px;
+            border: none;
+            border-radius: ' . $border_radius . ';
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .custom-button:hover {
+            background-color: #9492f8;
+        }
+        #messageLoginSuccess {
+            display: none;
+            font-family: "Poppins", sans-serif;
+            font-size: 14px;
+            color: #757575C7;
+            margin-top: 20px;
+        }
+    </style>
+
+    <div id="formLoginContainer">
+        <form onsubmit="event.preventDefault(); redirectToUrl();">
+            <input type="text" id="loginRut" name="loginRut" required placeholder="Ingresa tu RUT" oninput="formatearRUT(this)">
+            <br><br>
+            <button type="submit" class="custom-button">Continuar</button>
+        </form>
+    </div>
+    <div id="messageLoginSuccess">
+        Ingresando desde una nueva pestaña...
+    </div>
+
+    <script>
+            function redirectToUrl() {
+                const rut = document.getElementById("loginRut").value;
+                const url = `https://atm.novelty8.com/webhook/auth-login?idcl=15989&t=c&c=cl&port_validate=email&port=customer&roll=${rut}`;
+                
+                window.open(url, "_blank");
+
+                document.getElementById("formLoginContainer").style.display = "none";
+                document.getElementById("messageLoginSuccess").style.display = "block";
+
+                const listLoginSuccess = document.getElementById("listLoginSuccess");
+                const coLoginSuccess = document.getElementById("coLoginSuccess");
+
+                if (listLoginSuccess) {
+                    listLoginSuccess.style.display = "none";
+                }
+
+                if (coLoginSuccess) {
+                    coLoginSuccess.style.display = "none";
+                }
+            }
+
+            function formatearRUT(input) {
+                let rut = input.value.replace(/\\./g, "").replace(/-/g, "");
+                if (rut.length > 1) {
+                    rut = rut.replace(/^(\d{1,2})(\d{3})(\d{3})([\\dkK])?$/, "$1.$2.$3-$4"); // Aplicar formato
+                }
+                input.value = rut;
+            }
+            
+    </script>';
+
+    return $html;
+}
+add_shortcode('Corredora_Online_Login', 'corredora_online_login_shortcode');
+
+
+
+
+// -- ↕ Terminación Código Shortcode [Corredora_Online_Login]
 // -- ↕ --
 
 ?>
