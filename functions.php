@@ -1,6 +1,6 @@
 <?php
 
-// Refresh var to update status #2
+// Refresh var to update status #5
 
 // -- ↕ Iniciación Código Page Back Office
 
@@ -163,7 +163,7 @@ add_action('admin_init', 'save_corredora_settings');
 // -- ↕ Iniciación Código Shortcode Corredora_Online
 
 
-// Shortcode [ Corredora_Online mostrar="xx" ] despliega información guardada en options
+// Shortcode [ Corredora_Online mostrar="xx" ] 'correo', 'numero', 'año-actual' despliega información guardada en options
 function corredora_online_shortcode($atts) {
     $atts = shortcode_atts(array(
         'mostrar' => ''
@@ -214,7 +214,7 @@ function registrar_aseguradoras_custom_post_type() {
         'query_var'          => true,
         'rewrite'            => array( 'slug' => 'aseguradora' ),
         'capability_type'    => 'post',
-        'has_archive'        => true,
+        'has_archive'        => false,
         'hierarchical'       => false,
         'menu_position'      => null,
         'supports'           => array( 'title', 'thumbnail' ),
@@ -655,319 +655,347 @@ function procesar_peticion_valoraciones($data) {
 // -- ↕ Terminación Código API REST Updator Elements
 // -- ↕ Iniciación Código Shortcode [Corredora_Online_Cotizador]
 
-
 // Función para mostrar el formulario del cotizador
 function corredora_online_cotizador($atts)
 {
-	
-    
+    // Array de comunas por región, sin cambios
     $comunasPorRegion = array(
-    'Arica y Parinacota' => ['Arica', 'Camarones', 'Putre', 'General Lagos'],
-    'Tarapacá' => ['Iquique', 'Alto Hospicio', 'Pozo Almonte', 'Camiña', 'Colchane', 'Huara', 'Pica'],
-    'Antofagasta' => ['Antofagasta', 'Mejillones', 'Sierra Gorda', 'Taltal', 'Calama', 'Ollagüe', 'San Pedro de Atacama', 'María Elena', 'Tocopilla'],
-    'Atacama' => ['Copiapó', 'Caldera', 'Tierra Amarilla', 'Chañaral', 'Diego de Almagro', 'Vallenar', 'Alto del Carmen', 'Freirina', 'Huasco'],
-    'Coquimbo' => ['La Serena', 'Coquimbo', 'Andacollo', 'La Higuera', 'Paiguano', 'Vicuña', 'Illapel', 'Canela', 'Los Vilos', 'Salamanca', 'Ovalle', 'Combarbalá', 'Monte Patria', 'Punitaqui', 'Río Hurtado'],
-    'Valparaíso' => ['Valparaíso', 'Casablanca', 'Concón', 'Juan Fernández', 'Puchuncaví', 'Quintero', 'Viña del Mar', 'Isla de Pascua', 'Los Andes', 'Calle Larga', 'Rinconada', 'San Esteban', 'La Ligua', 'Cabildo', 'Papudo', 'Petorca', 'Zapallar', 'Quillota', 'Calera', 'Hijuelas', 'La Cruz', 'Nogales', 'San Antonio', 'Algarrobo', 'Cartagena', 'El Quisco', 'El Tabo', 'Santo Domingo', 'San Felipe', 'Catemu', 'Llaillay', 'Panquehue', 'Putaendo', 'Santa María', 'Quilpué', 'Limache', 'Olmué', 'Villa Alemana'],
-    'Metropolitana de Santiago' => ['Santiago', 'Cerrillos', 'Cerro Navia', 'Conchalí', 'El Bosque', 'Estación Central', 'Huechuraba', 'Independencia', 'La Cisterna', 'La Florida', 'La Granja', 'La Pintana', 'La Reina', 'Las Condes', 'Lo Barnechea', 'Lo Espejo', 'Lo Prado', 'Macul', 'Maipú', 'Ñuñoa', 'Pedro Aguirre Cerda', 'Peñalolén', 'Providencia', 'Pudahuel', 'Quilicura', 'Quinta Normal', 'Recoleta', 'Renca', 'San Joaquín', 'San Miguel', 'San Ramón', 'Vitacura', 'Puente Alto', 'Pirque', 'San José de Maipo', 'Colina', 'Lampa', 'Tiltil'],
-    'Libertador General Bernardo O’Higgins' => ['Rancagua', 'Codegua', 'Coinco', 'Coltauco', 'Doñihue', 'Graneros', 'Las Cabras', 'Machalí', 'Malloa', 'Mostazal', 'Olivar', 'Peumo', 'Pichidegua', 'Quinta de Tilcoco', 'Rengo', 'Requínoa', 'San Vicente', 'Pichilemu', 'La Estrella', 'Litueche', 'Marchihue', 'Navidad', 'Paredones', 'San Fernando', 'Chépica', 'Chimbarongo', 'Lolol', 'Nancagua', 'Palmilla', 'Peralillo', 'Placilla', 'Pumanque', 'Santa Cruz'],
-    'Maule' => ['Talca', 'Consitución', 'Curepto', 'Empedrado', 'Maule', 'Pelarco', 'Pencahue', 'Río Claro', 'San Clemente', 'San Rafael', 'Cauquenes', 'Chanco', 'Pelluhue', 'Curicó', 'Hualañé', 'Licantén', 'Molina', 'Rauco', 'Romeral', 'Sagrada Familia', 'Teno', 'Vichuquén', 'Linares', 'Colbún', 'Longaví', 'Parral', 'Retiro', 'San Javier', 'Villa Alegre', 'Yerbas Buenas'],
-    'Ñuble' => ['Chillán', 'Bulnes', 'Cobquecura', 'Coelemu', 'Coihueco', 'Chillán Viejo', 'El Carmen', 'Ninhue', 'Ñiquén', 'Pemuco', 'Pinto', 'Portezuelo', 'Quillón', 'Quirihue', 'Ránquil', 'San Carlos', 'San Fabián', 'San Ignacio', 'San Nicolás', 'Treguaco', 'Yungay'],
-    'Biobío' => ['Concepción', 'Coronel', 'Chiguayante', 'Florida', 'Hualqui', 'Lota', 'Penco', 'San Pedro de la Paz', 'Santa Juana', 'Talcahuano', 'Tomé', 'Hualpén', 'Lebu', 'Arauco', 'Cañete', 'Contulmo', 'Curanilahue', 'Los Álamos', 'Tirúa', 'Los Ángeles', 'Antuco', 'Cabrero', 'Laja', 'Mulchén', 'Nacimiento', 'Negrete', 'Quilaco', 'Quilleco', 'San Rosendo', 'Santa Bárbara', 'Tucapel', 'Yumbel', 'Alto Biobío'],
-    'La Araucanía' => ['Temuco', 'Carahue', 'Cunco', 'Curarrehue', 'Freire', 'Galvarino', 'Gorbea', 'Lautaro', 'Loncoche', 'Melipeuco', 'Nueva Imperial', 'Padre las Casas', 'Perquenco', 'Pitrufquén', 'Pucón', 'Saavedra', 'Teodoro Schmidt', 'Toltén', 'Vilcún', 'Villarrica', 'Cholchol', 'Angol', 'Collipulli', 'Curacautín', 'Ercilla', 'Lonquimay', 'Los Sauces', 'Lumaco', 'Purén', 'Renaico', 'Traiguén', 'Victoria'],
-    'Los Ríos' => ['Valdivia', 'Corral', 'Lanco', 'Los Lagos', 'Máfil', 'Mariquina', 'Paillaco', 'Panguipulli', 'La Unión', 'Futrono', 'Lago Ranco', 'Río Bueno'],
-    'Los Lagos' => ['Puerto Montt', 'Calbuco', 'Cochamó', 'Fresia', 'Frutillar', 'Los Muermos', 'Llanquihue', 'Maullín', 'Puerto Varas', 'Castro', 'Ancud', 'Chonchi', 'Curaco de Vélez', 'Dalcahue', 'Puqueldón', 'Queilén', 'Quellón', 'Quemchi', 'Quinchao', 'Osorno', 'Puerto Octay', 'Purranque', 'Puyehue', 'Río Negro', 'San Juan de la Costa', 'San Pablo', 'Chaitén', 'Futaleufú', 'Hualaihué', 'Palena'],
-    'Aysén del General Carlos Ibáñez del Campo' => ['Coyhaique', 'Lago Verde', 'Aysén', 'Cisnes', 'Guaitecas', 'Cochrane', 'O’Higgins', 'Tortel', 'Chile Chico', 'Río Ibáñez'],
-    'Magallanes y de la Antártica Chilena' => ['Punta Arenas', 'Laguna Blanca', 'Río Verde', 'San Gregorio', 'Cabo de Hornos', 'Antártica', 'Porvenir', 'Primavera', 'Timaukel', 'Natales', 'Torres del Paine'],
-	);
+        'Arica y Parinacota' => ['Arica', 'Camarones', 'Putre', 'General Lagos'],
+        'Tarapacá' => ['Iquique', 'Alto Hospicio', 'Pozo Almonte', 'Camiña', 'Colchane', 'Huara', 'Pica'],
+        'Antofagasta' => ['Antofagasta', 'Mejillones', 'Sierra Gorda', 'Taltal', 'Calama', 'Ollagüe', 'San Pedro de Atacama', 'María Elena', 'Tocopilla'],
+        'Atacama' => ['Copiapó', 'Caldera', 'Tierra Amarilla', 'Chañaral', 'Diego de Almagro', 'Vallenar', 'Alto del Carmen', 'Freirina', 'Huasco'],
+        'Coquimbo' => ['La Serena', 'Coquimbo', 'Andacollo', 'La Higuera', 'Paiguano', 'Vicuña', 'Illapel', 'Canela', 'Los Vilos', 'Salamanca', 'Ovalle', 'Combarbalá', 'Monte Patria', 'Punitaqui', 'Río Hurtado'],
+        'Valparaíso' => ['Valparaíso', 'Casablanca', 'Concón', 'Juan Fernández', 'Puchuncaví', 'Quintero', 'Viña del Mar', 'Isla de Pascua', 'Los Andes', 'Calle Larga', 'Rinconada', 'San Esteban', 'La Ligua', 'Cabildo', 'Papudo', 'Petorca', 'Zapallar', 'Quillota', 'Calera', 'Hijuelas', 'La Cruz', 'Nogales', 'San Antonio', 'Algarrobo', 'Cartagena', 'El Quisco', 'El Tabo', 'Santo Domingo', 'San Felipe', 'Catemu', 'Llaillay', 'Panquehue', 'Putaendo', 'Santa María', 'Quilpué', 'Limache', 'Olmué', 'Villa Alemana'],
+        'Metropolitana de Santiago' => ['Santiago', 'Cerrillos', 'Cerro Navia', 'Conchalí', 'El Bosque', 'Estación Central', 'Huechuraba', 'Independencia', 'La Cisterna', 'La Florida', 'La Granja', 'La Pintana', 'La Reina', 'Las Condes', 'Lo Barnechea', 'Lo Espejo', 'Lo Prado', 'Macul', 'Maipú', 'Ñuñoa', 'Pedro Aguirre Cerda', 'Peñalolén', 'Providencia', 'Pudahuel', 'Quilicura', 'Quinta Normal', 'Recoleta', 'Renca', 'San Joaquín', 'San Miguel', 'San Ramón', 'Vitacura', 'Puente Alto', 'Pirque', 'San José de Maipo', 'Colina', 'Lampa', 'Tiltil'],
+        'Libertador General Bernardo O’Higgins' => ['Rancagua', 'Codegua', 'Coinco', 'Coltauco', 'Doñihue', 'Graneros', 'Las Cabras', 'Machalí', 'Malloa', 'Mostazal', 'Olivar', 'Peumo', 'Pichidegua', 'Quinta de Tilcoco', 'Rengo', 'Requínoa', 'San Vicente', 'Pichilemu', 'La Estrella', 'Litueche', 'Marchihue', 'Navidad', 'Paredones', 'San Fernando', 'Chépica', 'Chimbarongo', 'Lolol', 'Nancagua', 'Palmilla', 'Peralillo', 'Placilla', 'Pumanque', 'Santa Cruz'],
+        'Maule' => ['Talca', 'Consitución', 'Curepto', 'Empedrado', 'Maule', 'Pelarco', 'Pencahue', 'Río Claro', 'San Clemente', 'San Rafael', 'Cauquenes', 'Chanco', 'Pelluhue', 'Curicó', 'Hualañé', 'Licantén', 'Molina', 'Rauco', 'Romeral', 'Sagrada Familia', 'Teno', 'Vichuquén', 'Linares', 'Colbún', 'Longaví', 'Parral', 'Retiro', 'San Javier', 'Villa Alegre', 'Yerbas Buenas'],
+        'Ñuble' => ['Chillán', 'Bulnes', 'Cobquecura', 'Coelemu', 'Coihueco', 'Chillán Viejo', 'El Carmen', 'Ninhue', 'Ñiquén', 'Pemuco', 'Pinto', 'Portezuelo', 'Quillón', 'Quirihue', 'Ránquil', 'San Carlos', 'San Fabián', 'San Ignacio', 'San Nicolás', 'Treguaco', 'Yungay'],
+        'Biobío' => ['Concepción', 'Coronel', 'Chiguayante', 'Florida', 'Hualqui', 'Lota', 'Penco', 'San Pedro de la Paz', 'Santa Juana', 'Talcahuano', 'Tomé', 'Hualpén', 'Lebu', 'Arauco', 'Cañete', 'Contulmo', 'Curanilahue', 'Los Álamos', 'Tirúa', 'Los Ángeles', 'Antuco', 'Cabrero', 'Laja', 'Mulchén', 'Nacimiento', 'Negrete', 'Quilaco', 'Quilleco', 'San Rosendo', 'Santa Bárbara', 'Tucapel', 'Yumbel', 'Alto Biobío'],
+        'La Araucanía' => ['Temuco', 'Carahue', 'Cunco', 'Curarrehue', 'Freire', 'Galvarino', 'Gorbea', 'Lautaro', 'Loncoche', 'Melipeuco', 'Nueva Imperial', 'Padre las Casas', 'Perquenco', 'Pitrufquén', 'Pucón', 'Saavedra', 'Teodoro Schmidt', 'Toltén', 'Vilcún', 'Villarrica', 'Cholchol', 'Angol', 'Collipulli', 'Curacautín', 'Ercilla', 'Lonquimay', 'Los Sauces', 'Lumaco', 'Purén', 'Renaico', 'Traiguén', 'Victoria'],
+        'Los Ríos' => ['Valdivia', 'Corral', 'Lanco', 'Los Lagos', 'Máfil', 'Mariquina', 'Paillaco', 'Panguipulli', 'La Unión', 'Futrono', 'Lago Ranco', 'Río Bueno'],
+        'Los Lagos' => ['Puerto Montt', 'Calbuco', 'Cochamó', 'Fresia', 'Frutillar', 'Los Muermos', 'Llanquihue', 'Maullín', 'Puerto Varas', 'Castro', 'Ancud', 'Chonchi', 'Curaco de Vélez', 'Dalcahue', 'Puqueldón', 'Queilén', 'Quellón', 'Quemchi', 'Quinchao', 'Osorno', 'Puerto Octay', 'Purranque', 'Puyehue', 'Río Negro', 'San Juan de la Costa', 'San Pablo', 'Chaitén', 'Futaleufú', 'Hualaihué', 'Palena'],
+        'Aysén del General Carlos Ibáñez del Campo' => ['Coyhaique', 'Lago Verde', 'Aysén', 'Cisnes', 'Guaitecas', 'Cochrane', 'O’Higgins', 'Tortel', 'Chile Chico', 'Río Ibáñez'],
+        'Magallanes y de la Antártica Chilena' => ['Punta Arenas', 'Laguna Blanca', 'Río Verde', 'San Gregorio', 'Cabo de Hornos', 'Antártica', 'Porvenir', 'Primavera', 'Timaukel', 'Natales', 'Torres del Paine'],
+    );
+    
+    // Obtener valores opcionales de color y border desde la BD
     $color_fondo = get_option('co-color-fondo', '#52868E');
     $color_texto = get_option('co-color-texto', '#ffffff');
     $border_radius = get_option('co-border-radius', '8px'); 
-    
-    
+
     ob_start();
     ?>
     
-
     <style>
-            @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
 
-            .cotizador-form-container {
-                padding: 0px 0px 0px 40px;
-                font-family: 'Nunito', sans-serif;
-            }
+        .cotizador-form-container {
+            padding: 0px 0px 0px 40px;
+            font-family: 'Nunito', sans-serif;
+        }
 
-            .cotizador-form-container label {
-                display: block;
-                margin-bottom: 8px;
-                font-size: 16px;
-                font-weight: 600;
-            }
+        .cotizador-form-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 600;
+        }
 
-            .cotizador-form-container input[type="text"],
-            .cotizador-form-container input[type="email"],
-            .cotizador-form-container input[type="password"] {
-                width: calc(100% - 22px);
-                padding: 10px 16px;
-                margin-bottom: 8px;
-                border: 1px solid #ccc;
-                border-radius: <?php echo esc_attr($border_radius); ?>;
-                box-sizing: border-box;
-                font-size: 16px;
-            }
+        .cotizador-form-container input[type="text"],
+        .cotizador-form-container input[type="email"],
+        .cotizador-form-container input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 10px 16px;
+            margin-bottom: 8px;
+            border: 1px solid #ccc;
+            border-radius: <?php echo esc_attr($border_radius); ?>;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
 
-            .cotizador-form-container input[type="submit"],
-            .cotizador-form-container .next-step {
-                width: calc(100% - 20px);
-                padding: 14px;
-                margin-top: 4px;
-                background-color: <?php echo esc_attr($color_fondo); ?>;
-                border: none;
-                border-radius: <?php echo esc_attr($border_radius); ?>;
-                color: <?php echo esc_attr($color_texto); ?>;
-                font-size: 16px;
-                cursor: pointer;
-                font-family: 'Nunito', sans-serif;
-                font-weight: 600;
-            }
+        .cotizador-form-container input[type="submit"],
+        .cotizador-form-container .next-step {
+            width: calc(100% - 20px);
+            padding: 14px;
+            margin-top: 4px;
+            background-color: <?php echo esc_attr($color_fondo); ?>;
+            border: none;
+            border-radius: <?php echo esc_attr($border_radius); ?>;
+            color: <?php echo esc_attr($color_texto); ?>;
+            font-size: 16px;
+            cursor: pointer;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 600;
+        }
 
-            .cotizador-form-container input[type="submit"]:hover,
-            .cotizador-form-container .next-step:hover {
-                background-color: #0056b3;
-            }
+        .cotizador-form-container input[type="submit"]:hover,
+        .cotizador-form-container .next-step:hover {
+            background-color: #0056b3;
+        }
 
-            .cotizador-form-container .form-footer {
-                text-align: center;
-                margin-top: 20px;
-            }
+        .cotizador-form-container .form-footer {
+            text-align: center;
+            margin-top: 20px;
+        }
 
-            .cotizador-form-container .form-footer a {
-                color: #007bff;
-                text-decoration: none;
-            }
+        .cotizador-form-container .form-footer a {
+            color: #007bff;
+            text-decoration: none;
+        }
 
-            .cotizador-form-container .form-footer a:hover {
-                text-decoration: underline;
-            }
+        .cotizador-form-container .form-footer a:hover {
+            text-decoration: underline;
+        }
 
-            #patente {
-                text-transform: uppercase;
-            }
+        #patente {
+            text-transform: uppercase;
+        }
 
-            .step {
-                display: none;
-            }
+        .step {
+            display: none;
+        }
 
-            .step.active {
-                display: block;
-            }
+        .step.active {
+            display: block;
+        }
 
-            .steps {
-                display: flex;
-                justify-content: space-around;
-                margin-bottom: 30px;
-                width: calc(100% - 20px);
-            }
+        .steps {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+            width: calc(100% - 20px);
+        }
 
-            .steps div {
-                flex: 1;
-                padding: 8px;
-                text-align: center;
-                border: 1px solid #ccc;
-                cursor: pointer;
-                font-size: 14px;
-                color: #5F5F5F;
-                border-radius: 8px;
-                margin-right: 18px;
-            }
-            
-            .steps div:last-child {
-    			margin-right: 0;
-			}
-
-            .steps div.active {
-            	cursor: default;
-                background-color: #F0F0F0;
-                border: 1px solid #F0F0F0;
-            }
-
-            .error-message {
-                color: red;
-                font-family: 'Nunito', sans-serif;
-                font-size: 13px;
-                margin-top: -1px;
-                margin-bottom: 7px;
-            }
-
-            .row {
-                display: flex;
-            }
-
-            .half {
-                flex: 1;
-                margin-right: 4px;
-                margin-top: -4px;
-                margin-bottom: -4px;
-            }
-
-            .half:last-child {
-                margin-right: 0;
-            }
-            .half.margin-bottom {
-    			margin-bottom: 19px;
-			}
-            .invalid-input {
-                border-color: red !important;
-            }
-            .wait-cursor {
-				cursor: wait !important;
-			}
-			select {
-    			all: unset;
-			}
-			.cotizador-form-container select {
-				width: calc(100% - 22px);
-				padding: 9px 14px;
-				margin-top: 2px;
-				margin-bottom: 8px;
-				border: 1px solid #ccc;
-				border-radius: <?php echo esc_attr($border_radius); ?>;
-				box-sizing: border-box;
-				font-size: 15px;
-			}
-			.spinner {
-        		border: 4px solid #f3f3f3;
-        		border-top: 4px solid #3498db;
-        		border-radius: 50%;
-        		width: 40px;
-        		height: 40px;
-        		animation: spin 1s linear infinite;
-        		margin: 0 auto 10px;
-    		} 
-    		@keyframes spin {
-        		0% { transform: rotate(0deg); }
-        		100% { transform: rotate(360deg); }
-    		}
-        </style>
+        .steps div {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-size: 14px;
+            color: #5F5F5F;
+            border-radius: 8px;
+            margin-right: 18px;
+        }
         
-    
-    <div id="loading-indicator" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.8); z-index: 9999; border-radius: 20px;">
-    	<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
-        	<div class="spinner"></div>
-        	<p>Cargando...</p>
-    	</div>
-	</div>
-    
+        .steps div:last-child {
+            margin-right: 0;
+        }
+
+        .steps div.active {
+            cursor: default;
+            background-color: #F0F0F0;
+            border: 1px solid #F0F0F0;
+        }
+
+        .error-message {
+            color: red;
+            font-family: 'Nunito', sans-serif;
+            font-size: 13px;
+            margin-top: -1px;
+            margin-bottom: 7px;
+        }
+
+        .row {
+            display: flex;
+        }
+
+        .half {
+            flex: 1;
+            margin-right: 4px;
+            margin-top: -4px;
+            margin-bottom: -4px;
+        }
+
+        .half:last-child {
+            margin-right: 0;
+        }
+
+        .half.margin-bottom {
+            margin-bottom: 19px;
+        }
+
+        .invalid-input {
+            border-color: red !important;
+        }
+
+        .wait-cursor {
+            cursor: wait !important;
+        }
+
+        select {
+            all: unset;
+        }
+
+        .cotizador-form-container select {
+            width: calc(100% - 22px);
+            padding: 9px 14px;
+            margin-top: 2px;
+            margin-bottom: 8px;
+            border: 1px solid #ccc;
+            border-radius: <?php echo esc_attr($border_radius); ?>;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loading-indicator {
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(255,255,255,0.8); 
+            z-index: 9999; 
+            border-radius: 20px;
+        }
+        #loading-indicator > div {
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+        }
+    </style>
+
+    <div id="loading-indicator">
+        <div>
+            <div class="spinner"></div>
+            <p>Cargando...</p>
+        </div>
+    </div>
+
     <div class="cotizador-form-container">
-            <div class="steps">
-                <div class="step-title active" data-step="1">1. Vehículo</div>
-                <div class="step-title" data-step="2">2. Contacto</div>
+        <div class="steps">
+            <div class="step-title active" data-step="1">1. Vehículo</div>
+            <div class="step-title" data-step="2">2. Contacto</div>
+        </div>
+        <form id="cotizador-form" action="<?php echo esc_url($_SERVER['REQUEST_URI']); ?>" method="post">
+            <div class="step active" data-step="1">
+                <p>
+                    <label for="patente">Ingresa la patente</label>
+                    <input type="text" id="patente" name="patente" required placeholder="ABCD12">
+                    <span id="error-message" class="error-message" style="display: none;">La patente ingresada no es válida</span>
+                </p>
+                <p id="marca-field" style="display: none;">
+                    <label for="marca">Marca</label>
+                    <input type="text" id="marca" name="marca">
+                </p>
+                <p id="modelo-field" style="display: none;">
+                    <label for="modelo">Modelo</label>
+                    <input type="text" id="modelo" name="modelo">
+                </p>
+                <p id="año-field" style="display: none;">
+                    <label for="año">Año</label>
+                    <input type="text" id="año" name="año">
+                </p>
+                <p>
+                    <button type="button" class="next-step">Siguiente</button>
+                </p>
             </div>
-            <form id="cotizador-form" action="<?php echo esc_url($_SERVER['REQUEST_URI']); ?>" method="post">
-                <div class="step active" data-step="1">
-                    <p>
-                        <label for="patente">Ingresa la patente</label>
-                        <input type="text" id="patente" name="patente" required placeholder="ABCD12">
-                        <span id="error-message" class="error-message" style="display: none;">La patente ingresada no es válida</span>
+            <div class="step" data-step="2">
+                <p>
+                    <label for="rut">RUT</label>
+                    <input type="text" id="rut" name="rut" required maxlength="12" placeholder="12.345.678-9">
+                    <span id="rut-error-message" class="error-message" style="display: none;">El RUT ingresado no es válido</span>
+                </p>
+                <div class="row">
+                    <p class="half margin-bottom" id="nombre-field" style="display: none;">
+                        <label for="nombre">Nombre</label>
+                        <input type="text" id="nombre" name="nombre" required>
                     </p>
-                    <p id="marca-field" style="display: none;">
-                        <label for="marca">Marca</label>
-                        <input type="text" id="marca" name="marca">
-                    </p>
-                    <p id="modelo-field" style="display: none;">
-                        <label for="modelo">Modelo</label>
-                        <input type="text" id="modelo" name="modelo">
-                    </p>
-                    <p id="año-field" style="display: none;">
-                        <label for="año">Año</label>
-                        <input type="text" id="año" name="año">
-                    </p>
-                    <p>
-                        <button type="button" class="next-step">Siguiente</button>
+                    <p class="half margin-bottom" id="apellido-field" style="display: none;">
+                        <label for="apellido">Apellido</label>
+                        <input type="text" id="apellido" name="apellido" required>
                     </p>
                 </div>
-                <div class="step" data-step="2">
-                    <p>
-                        <label for="rut">RUT</label>
-                        <input type="text" id="rut" name="rut" required maxlength="12" placeholder="12.345.678-9">
-                        <span id="rut-error-message" class="error-message" style="display: none;">El RUT ingresado no es válido</span>
+                <div class="row" style="margin-bottom: -8px;">
+                    <p class="half margin-bottom">
+                        <label for="region">Región</label>
+                        <select id="region" name="region" required>
+                            <option value="">Selecciona una región</option>
+                            <option value="Arica y Parinacota">Región de Arica y Parinacota</option>
+                            <option value="Tarapacá">Región de Tarapacá</option>
+                            <option value="Antofagasta">Región de Antofagasta</option>
+                            <option value="Atacama">Región de Atacama</option>
+                            <option value="Coquimbo">Región de Coquimbo</option>
+                            <option value="Valparaíso">Región de Valparaíso</option>
+                            <option value="Metropolitana de Santiago">Región Metropolitana de Santiago</option>
+                            <option value="Libertador General Bernardo O’Higgins">Región del Libertador General Bernardo O’Higgins</option>
+                            <option value="Maule">Región del Maule</option>
+                            <option value="Ñuble">Región de Ñuble</option>
+                            <option value="Biobío">Región del Biobío</option>
+                            <option value="La Araucanía">Región de La Araucanía</option>
+                            <option value="Los Ríos">Región de Los Ríos</option>
+                            <option value="Los Lagos">Región de Los Lagos</option>
+                            <option value="Aysén del General Carlos Ibáñez del Campo">Región de Aysén del General Carlos Ibáñez del Campo</option>
+                            <option value="Magallanes y de la Antártica Chilena">Región de Magallanes y de la Antártica Chilena</option>
+                        </select>
                     </p>
-                    <div class="row">
-                        <p class="half margin-bottom" id="nombre-field" style="display: none;">
-                            <label for="nombre">Nombre</label>
-                            <input type="text" id="nombre" name="nombre" required>
-                        </p>
-                        <p class="half margin-bottom" id="apellido-field" style="display: none;">
-                            <label for="apellido">Apellido</label>
-                            <input type="text" id="apellido" name="apellido" required>
-                        </p>
-                    </div>
-                    <div class="row" style="margin-bottom: -8px;">
-    					<p class="half margin-bottom">
-        					<label for="region">Región</label>
-        					<select id="region" name="region" required>
-            <option value="">Selecciona una región</option>
-            <option value="Arica y Parinacota">Región de Arica y Parinacota</option>
-            <option value="Tarapacá">Región de Tarapacá</option>
-            <option value="Antofagasta">Región de Antofagasta</option>
-            <option value="Atacama">Región de Atacama</option>
-            <option value="Coquimbo">Región de Coquimbo</option>
-            <option value="Valparaíso">Región de Valparaíso</option>
-            <option value="Metropolitana de Santiago">Región Metropolitana de Santiago</option>
-            <option value="Libertador General Bernardo O’Higgins">Región del Libertador General Bernardo O’Higgins</option>
-            <option value="Maule">Región del Maule</option>
-            <option value="Ñuble">Región de Ñuble</option>
-            <option value="Biobío">Región del Biobío</option>
-            <option value="La Araucanía">Región de La Araucanía</option>
-            <option value="Los Ríos">Región de Los Ríos</option>
-            <option value="Los Lagos">Región de Los Lagos</option>
-            <option value="Aysén del General Carlos Ibáñez del Campo">Región de Aysén del General Carlos Ibáñez del Campo</option>
-            <option value="Magallanes y de la Antártica Chilena">Región de Magallanes y de la Antártica Chilena</option>
-        </select>
-    					</p>
-    					<p class="half margin-bottom">
-    						<label for="comuna">Comuna</label>
-    						<select id="comuna" name="comuna" required></select>
-						</p>
-					</div>
-                    	<p>
-                        	<label for="correo">Correo</label>
-                        	<input type="email" id="correo" name="correo" required placeholder="micorreo@gmail.com">
-                    	</p>
-                    	<p>
-                        	<label for="telefono">Celular</label>
-                        	<input type="text" id="telefono" name="telefono" required placeholder="+56911111111">
-                    	</p>
-                   		<p>
-                        <input type="submit" name="submit" value="Cotizar online" id="submit-button" disabled>
-                    	</p>
-                	</div>
-            </form>
-        </div>
-         
-        
-	<script type="text/javascript">
+                    <p class="half margin-bottom">
+                        <label for="comuna">Comuna</label>
+                        <select id="comuna" name="comuna" required></select>
+                    </p>
+                </div>
+                <p>
+                    <label for="correo">Correo</label>
+                    <input type="email" id="correo" name="correo" required placeholder="micorreo@gmail.com">
+                </p>
+                <p>
+                    <label for="telefono">Celular</label>
+                    <input type="text" id="telefono" name="telefono" required placeholder="+56911111111">
+                </p>
+                <p>
+                    <input type="submit" name="submit" value="Cotizar online" id="submit-button" disabled>
+                </p>
+            </div>
+        </form>
+    </div>
+     
+    <script type="text/javascript">
     document.addEventListener('DOMContentLoaded', function () {
+
+        // Declarar currentStep e iniciarlo en 1
+        var currentStep = 1;
+
         var patenteInput = document.getElementById('patente');
         var errorMessage = document.getElementById('error-message');
         var rutInput = document.getElementById('rut');
         var rutErrorMessage = document.getElementById('rut-error-message');
         var nombreField = document.getElementById('nombre-field');
         var apellidoField = document.getElementById('apellido-field');
+        var nombreInput = document.getElementById('nombre');
+        var apellidoInput = document.getElementById('apellido');
+        
         var timeout = null;
         var isPatenteValid = false;
         var isRUTValid = false;
+
         var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
-        var nombreInput = document.getElementById('nombre');
-    	var apellidoInput = document.getElementById('apellido');
 
-		function showLoading() {
-        document.getElementById('loading-indicator').style.display = 'block';
-    	}
+        function showLoading() {
+            document.getElementById('loading-indicator').style.display = 'block';
+        }
     
-    	function hideLoading() {
-        document.getElementById('loading-indicator').style.display = 'none';
-   		}
+        function hideLoading() {
+            document.getElementById('loading-indicator').style.display = 'none';
+        }
 
+        // Valida RUT
         function validarRUT(rut) {
             rut = rut.replace(/[.-]/g, '');
             const dv = rut.slice(-1);
@@ -977,15 +1005,15 @@ function corredora_online_cotizador($atts)
 
             for (let i = rutCuerpo.length - 1; i >= 0; i--) {
                 suma += parseInt(rutCuerpo.charAt(i)) * multiplicador;
-                multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+                multiplicador = (multiplicador === 7) ? 2 : multiplicador + 1;
             }
 
             const dvCalculado = 11 - (suma % 11);
-            const dvEsperado = dvCalculado === 11 ? '0' : dvCalculado === 10 ? 'K' : dvCalculado.toString();
-
+            const dvEsperado = (dvCalculado === 11) ? '0' : (dvCalculado === 10 ? 'K' : dvCalculado.toString());
             return dv.toUpperCase() === dvEsperado;
         }
 
+        // Formateo de RUT en tiempo real
         rutInput.addEventListener('input', function () {
             var rut = this.value.trim().replace(/\./g, '').replace('-', '');
             if (rut.length > 1) {
@@ -994,6 +1022,7 @@ function corredora_online_cotizador($atts)
             this.value = rut;
         });
 
+        // Cambio de región => carga comunas
         document.getElementById('region').addEventListener('change', function() {
             var region = this.value;
             var comunaSelect = document.getElementById('comuna');
@@ -1012,6 +1041,7 @@ function corredora_online_cotizador($atts)
             }
         });
 
+        // Validar patente en tiempo real
         patenteInput.addEventListener('input', function () {
             clearTimeout(timeout);
 
@@ -1039,6 +1069,7 @@ function corredora_online_cotizador($atts)
                                 document.getElementById('marca').value = data.data.marca;
                                 document.getElementById('modelo').value = data.data.modelo;
                                 document.getElementById('año').value = data.data.año;
+                                
                                 errorMessage.style.display = 'none';
                                 patenteInput.classList.remove('invalid-input');
                                 isPatenteValid = true;
@@ -1063,6 +1094,7 @@ function corredora_online_cotizador($atts)
             }
         });
 
+        // Validar RUT en tiempo real
         rutInput.addEventListener('input', function () {
             clearTimeout(timeout);
 
@@ -1090,6 +1122,7 @@ function corredora_online_cotizador($atts)
                             document.body.classList.remove('wait-cursor');
 
                             if (data.estado === "exitoso") {
+                                // Si no hay nombre en la base, mostramos campos para que el usuario los rellene
                                 if (data.data.nombre === "**" || !data.data.nombre) {
                                     nombreField.style.display = 'block';
                                     apellidoField.style.display = 'block';
@@ -1098,8 +1131,8 @@ function corredora_online_cotizador($atts)
                                 } else {
                                     isRUTValid = true;
                                     var nombreCompleto = data.data.nombre.split(' ');
-                                	nombreInput.value = nombreCompleto[0] || '';
-                                	apellidoInput.value = nombreCompleto.slice(1).join(' ') || '';
+                                    nombreInput.value = nombreCompleto[0] || '';
+                                    apellidoInput.value = nombreCompleto.slice(1).join(' ') || '';
                                     nombreField.style.display = 'none';
                                     apellidoField.style.display = 'none';
                                     rutErrorMessage.style.display = 'none';
@@ -1142,6 +1175,7 @@ function corredora_online_cotizador($atts)
             }, 500);
         });
 
+        // Habilitar / deshabilitar botón "Cotizar online"
         function updateSubmitButton() {
             var submitButton = document.getElementById('submit-button');
             if (isPatenteValid && isRUTValid) {
@@ -1160,8 +1194,10 @@ function corredora_online_cotizador($atts)
             }
         }
 
+        // Botón para pasar del paso 1 al paso 2
         document.querySelector('.next-step').addEventListener('click', function () {
             var valid = true;
+            // Chequea campos requeridos en el paso 1
             document.querySelectorAll('.step[data-step="1"] [required]').forEach(function (input) {
                 if (!input.value) {
                     valid = false;
@@ -1170,19 +1206,25 @@ function corredora_online_cotizador($atts)
             });
 
             if (valid && isPatenteValid) {
+                // Oculta paso 1, muestra paso 2
                 document.querySelector('.step[data-step="1"]').classList.remove('active');
                 document.querySelector('.step[data-step="2"]').classList.add('active');
 
                 document.querySelector('.step-title[data-step="1"]').classList.remove('active');
                 document.querySelector('.step-title[data-step="2"]').classList.add('active');
+
+                // Actualiza variable de control
+                currentStep = 2;
             }
         });
 
+        // Permite clickear en los títulos de paso si step <= currentStep
         document.querySelectorAll('.step-title').forEach(function (title) {
             title.addEventListener('click', function () {
                 var step = parseInt(this.getAttribute('data-step'));
                 if (step <= currentStep) {
                     showStep(step);
+                    currentStep = step;
                 }
             });
         });
@@ -1199,6 +1241,7 @@ function corredora_online_cotizador($atts)
             document.querySelector('.step-title[data-step="' + step + '"]').classList.add('active');
         }
 
+        // Mostrar / ocultar fields
         function showFields(fields) {
             fields.forEach(field => {
                 document.getElementById(field).style.display = 'block';
@@ -1211,69 +1254,65 @@ function corredora_online_cotizador($atts)
             });
         }
 
+        // Envío final del formulario
         document.getElementById('cotizador-form').addEventListener('submit', function (event) {
-        event.preventDefault();
+            event.preventDefault();
 
-        if (isPatenteValid && isRUTValid) {
-            var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
-            var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
-            var producto = "347";
-            var idVendedor = "29340";
-            
-            var data = {
-                producto: producto,
-                idc: corredoraId,
-                idVendedor: idVendedor,
-                patenteVehiculo: document.getElementById('patente').value,
-                marcaVehiculo: document.getElementById('marca').value,
-                modeloVehiculo: document.getElementById('modelo').value,
-                rut: document.getElementById('rut').value,
-                'tipo-cliente': 'natural',
-                nombre: nombreInput.value,
-                apellido: apellidoInput.value,
-                email: document.getElementById('correo').value,
-                celular: document.getElementById('telefono').value
-            };
-            
-            showLoading();
+            if (isPatenteValid && isRUTValid) {
+                var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+                var producto = "347";
+                var idVendedor = "41807";
+                var notificarCot = true;
+                
+                var data = {
+                    producto: producto,
+                    idc: corredoraId,
+                    idVendedor: idVendedor,
+                    patenteVehiculo: document.getElementById('patente').value,
+                    marcaVehiculo: document.getElementById('marca').value,
+                    modeloVehiculo: document.getElementById('modelo').value,
+                    rut: document.getElementById('rut').value,
+                    'tipo-cliente': 'natural',
+                    nombre: nombreInput.value,
+                    apellido: apellidoInput.value,
+                    email: document.getElementById('correo').value,
+                    celular: document.getElementById('telefono').value,
+                    notificar: notificarCot
+                };
+                
+                showLoading();
 
-            fetch('https://atm.novelty8.com/webhook/api/corredora-online/cotizaciones', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-KEY': apiKey
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => {
-                return response.json();
-            })
-            .then(responseData => {
-            	hideLoading();
-                alert('Solicitud enviada con éxito.');
-            })
-            .catch(error => {
-            	hideLoading();
-                console.error('Error al enviar la solicitud:', error);
-                alert('Hubo un error al enviar la solicitud.');
-            });
-        } else {
-            alert('Por favor, completa correctamente todos los campos.');
-        }
+                fetch('https://atm.novelty8.com/webhook/api/corredora-online/cotizaciones', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-KEY': apiKey
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(responseData => {
+                    hideLoading();
+                    alert('Solicitud enviada con éxito.');
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Error al enviar la solicitud:', error);
+                    alert('Hubo un error al enviar la solicitud.');
+                });
+            } else {
+                alert('Por favor, completa correctamente todos los campos.');
+            }
+        });
     });
-});
-</script>
-        
-        
+    </script>
+    
     <?php
     return ob_get_clean();
-    
 }
 
 add_shortcode('Corredora_Online_Cotizador', 'corredora_online_cotizador');
-
-
-
 
 // -- ↕ Terminación Código Shortcode [Corredora_Online_Cotizador]
 // -- ↕ Iniciación Código Shortcode [Corredora_Online_Compañias]
@@ -1285,7 +1324,7 @@ function slider_aseguradoras_shortcode() {
         'posts_per_page' => -1,
         'post_status' => 'publish',
         'orderby' => 'title',
-		'order' => 'ASC'
+        'order' => 'ASC'
     );
     $query = new WP_Query($args);
 
@@ -1308,7 +1347,7 @@ function slider_aseguradoras_shortcode() {
         wp_reset_postdata();
         return $output;
     } else {
-        return '<p>Configure las compañías con la que tiene código primero.</p>';
+        return '<p>Configure las compañías con las que tiene código primero.</p>';
     }
 }
 
@@ -1319,15 +1358,15 @@ function slider_aseguradoras_assets() {
             width: 100%;
             overflow: hidden;
             position: relative;
-            margin-left: -20px;
         }
         .slider-aseguradoras {
             display: flex;
-            transition: transform 0.5s ease-in-out;
+            transition: transform 0.5s linear;
+            will-change: transform;
         }
         .slider-aseguradoras .slide {
-            flex: 0 0 calc(100% / 7 - 40px);
-            margin-right: 55px;
+            flex: 0 0 auto;
+            margin-right: 60px; /* Aumenta este valor para más separación */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -1339,6 +1378,18 @@ function slider_aseguradoras_assets() {
             height: auto;
             object-fit: contain;
         }
+        /* Ajustes para tablets */
+        @media (max-width: 1024px) {
+            .slider-aseguradoras .slide {
+                margin-right: 40px;
+            }
+        }
+        /* Ajustes para móviles */
+        @media (max-width: 768px) {
+            .slider-aseguradoras .slide {
+                margin-right: 30px;
+            }
+        }
     </style>
     ";
     echo $custom_css;
@@ -1347,25 +1398,32 @@ function slider_aseguradoras_assets() {
     <script>
     jQuery(document).ready(function($) {
         var slider = $('.slider-aseguradoras');
-        var slides = slider.find('.slide');
-        var slideCount = slides.length;
-        var visibleSlides = 7;
-        var currentIndex = 0;
+        var slideCount = slider.find('.slide').length;
+        var slideWidth = slider.find('.slide').outerWidth(true);
+        var totalWidth = slideCount * slideWidth;
 
-        function moveSlider() {
-            var translateValue = -currentIndex * (100 / visibleSlides) + '%';
-            slider.css('transform', 'translateX(' + translateValue + ')');
+        // Duplicar el contenido para crear efecto continuo
+        slider.append(slider.html());
+        totalWidth = slider.find('.slide').length * slideWidth;
+        slider.css('width', totalWidth + 'px');
+
+        function animateSlider() {
+            slider.animate({'margin-left': -totalWidth / 2}, totalWidth * 10, 'linear', function() {
+                slider.css('margin-left', '0');
+                animateSlider();
+            });
         }
 
-        function nextSlide() {
-            currentIndex = (currentIndex + 1) % slideCount;
-            moveSlider();
-        }
+        animateSlider();
 
-
-        slides.slice(0, visibleSlides).clone().appendTo(slider);
-
-        setInterval(nextSlide, 3000);
+        $(window).resize(function() {
+            slideWidth = slider.find('.slide').outerWidth(true);
+            totalWidth = slider.find('.slide').length * slideWidth;
+            slider.css('width', totalWidth + 'px');
+            slider.stop();
+            slider.css('margin-left', '0');
+            animateSlider();
+        });
     });
     </script>
     ";
@@ -1375,8 +1433,6 @@ function slider_aseguradoras_assets() {
 add_shortcode('Corredora_Online_Compañias', 'slider_aseguradoras_shortcode');
 
 add_action('wp_footer', 'slider_aseguradoras_assets');
-
-
 
 
 // -- ↕ Terminación Código Shortcode [Corredora_Online_Compañias]
