@@ -1,6 +1,6 @@
 <?php
 
-// Refresh var to update status #5
+// Refresh var to update status #6
 
 // -- ↕ Iniciación Código Page Back Office
 
@@ -10,16 +10,40 @@ function add_custom_menu_page() {
     $plugin_dir_url = plugins_url('/', __FILE__);
     $icon_url = $plugin_dir_url . 'logotipo.png';
 
+    // Nombre visible y slug distinto
     $page_title = 'Corredora Online';
     $menu_title = 'Corredora Online';
     $capability = 'manage_options';
-    $menu_slug = 'corredora-online-settings';
-    $function = 'corredora_online_settings_page';
+    $top_level_slug = 'corredora-online-main';  // <--- OJO, distinto
+    $function = 'corredora_online_settings_page'; // Apuntamos directamente a tu callback
     $position = 100;
-    add_menu_page($page_title, $menu_title, $capability, $menu_slug, $function, $icon_url, $position);
-}
 
+    add_menu_page(
+        $page_title,
+        $menu_title,
+        $capability,
+        $top_level_slug,   // <--- SLUG de top-level
+        $function,         // Muestra Configuración directamente
+        $icon_url,
+        $position
+    );
+}
 add_action('admin_menu', 'add_custom_menu_page');
+
+
+function add_corredora_online_submenu() {
+    // El parent_slug ahora es 'corredora-online-main'
+    add_submenu_page(
+        'corredora-online-main',       // parent slug (el top-level de arriba)
+        'Configuración',               // page_title
+        'Configuración',               // menu_title
+        'manage_options',              // capability
+        'corredora-online-settings',   // slug distinto para subpágina
+        'corredora_online_settings_page', // la misma función callback
+        1 // posición para que vaya de primera (o un número muy bajo)
+    );
+}
+add_action('admin_menu', 'add_corredora_online_submenu');
 
 
 // Creación de la página en back office
@@ -210,13 +234,13 @@ function registrar_aseguradoras_custom_post_type() {
         ),
         'publicly_queryable' => true,
         'show_ui'            => true,
-        'show_in_menu'       => true,
+        'show_in_menu'       => 'corredora-online-main',
         'query_var'          => true,
         'rewrite'            => array( 'slug' => 'aseguradora' ),
         'capability_type'    => 'post',
         'has_archive'        => false,
         'hierarchical'       => false,
-        'menu_position'      => null,
+        'menu_position'      => 2,
         'supports'           => array( 'title', 'thumbnail' ),
         'show_in_rest'       => false,
         'rest_base'          => 'aseguradoras',
@@ -279,13 +303,13 @@ function registrar_valoraciones_custom_post_type() {
         ),
         'publicly_queryable' => true,
         'show_ui'            => true,
-        'show_in_menu'       => true,
+        'show_in_menu'       => 'corredora-online-main',
         'query_var'          => true,
         'rewrite'            => array( 'slug' => 'valoracion' ),
         'capability_type'    => 'post',
         'has_archive'        => true,
         'hierarchical'       => false,
-        'menu_position'      => null,
+        'menu_position'      => 3,
         'supports'           => array( 'title', 'thumbnail' ),
         'show_in_rest'       => true,
         'rest_base'          => 'valoraciones',
@@ -295,6 +319,53 @@ function registrar_valoraciones_custom_post_type() {
 }
 
 add_action( 'init', 'registrar_valoraciones_custom_post_type' );
+
+
+
+
+add_action('admin_menu', 'reordenar_submenus_corredora', 999);
+function reordenar_submenus_corredora() {
+    // El slug de tu menú principal
+    $parent_slug = 'corredora-online-main';
+
+    global $submenu;
+    // Asegurarnos de que exista
+    if (!empty($submenu[$parent_slug])) {
+        // $submenu[$parent_slug] es un array de arrays
+        // Cada sub-array se ve como: [0 => 'Título', 1 => 'Capacidad', 2 => 'menu_slug', 3 => 'Título Página', ...]
+
+        $nuevo_orden = array();
+        $config_item = null;
+
+        // 1. Encontrar el item 'Configuración' (menu_slug = 'corredora-online-settings')
+        foreach ($submenu[$parent_slug] as $index => $sub) {
+            if (!empty($sub[2]) && $sub[2] === 'corredora-online-settings') {
+                $config_item = $sub;
+                // Lo quitamos del array original
+                unset($submenu[$parent_slug][$index]);
+                break;
+            }
+        }
+
+        // 2. Insertar el item de Configuración en la posición 0
+        if ($config_item) {
+            $nuevo_orden[0] = $config_item;
+        }
+
+        // 3. Reindexar el resto de submenús (Aseguradoras, Valoraciones, etc.)
+        $i = 1;
+        foreach ($submenu[$parent_slug] as $sub) {
+            $nuevo_orden[$i] = $sub;
+            $i++;
+        }
+
+        // Ordenar por índice para no romper la estructura
+        ksort($nuevo_orden);
+        // Asignamos el array reordenado de vuelta
+        $submenu[$parent_slug] = $nuevo_orden;
+    }
+}
+
 
 
 // Eliminar botones de actualizar y edición rápida
