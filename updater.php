@@ -118,4 +118,71 @@ if (!class_exists('Corredora_Online_Updater')) {
         }
     }
 }
-?>
+
+/**
+ * -------------------------------------------------------
+ * SNIPPET PARA AGREGAR EL ENLACE "Buscar actualizaciones"
+ * Y FORZAR LA BÚSQUEDA DE ACTUALIZACIONES DE INMEDIATO.
+ * -------------------------------------------------------
+ */
+
+// Recomendable: detectar el plugin principal.
+$co_main_plugin_file = plugin_basename(dirname(__FILE__) . '/corredora-online.php');
+
+/**
+ * Agregar enlace "Buscar actualizaciones" en la fila del plugin
+ * (en la página de Plugins).
+ */
+add_filter('plugin_row_meta', 'co_add_force_update_link', 10, 2);
+function co_add_force_update_link($links, $file) {
+    // Compara con tu plugin principal
+    global $co_main_plugin_file;
+
+    if ($file === $co_main_plugin_file) {
+        // Construimos la URL con nonce y parámetro
+        $force_update_url = wp_nonce_url(
+            add_query_arg(array('co_force_update' => '1')),
+            'co_force_update_nonce'
+        );
+
+        // Añadir el enlace al array $links
+        $links[] = sprintf(
+            '<a href="%s" style="color:#2271b1;">%s</a>',
+            esc_url($force_update_url),
+            __('Buscar actualizaciones', 'text-domain')
+        );
+    }
+    return $links;
+}
+
+/**
+ * Capturar el click en "?co_force_update=1"
+ * Forzar la eliminación del transient y recargar la página.
+ */
+add_action('admin_init', 'co_maybe_force_update');
+function co_maybe_force_update() {
+    if (
+        isset($_GET['co_force_update']) &&
+        $_GET['co_force_update'] == '1' &&
+        check_admin_referer('co_force_update_nonce')
+    ) {
+        // Borra el transient de actualizaciones de plugins
+        delete_site_transient('update_plugins');
+
+        // Redirecciona de vuelta a la página de Plugins
+        wp_safe_redirect(admin_url('plugins.php?co_forced=1'));
+        exit;
+    }
+}
+
+/**
+ * Mostrar un aviso de éxito tras forzar la búsqueda de updates
+ */
+add_action('admin_notices', 'co_show_forced_update_notice');
+function co_show_forced_update_notice() {
+    if (isset($_GET['co_forced']) && $_GET['co_forced'] == '1') {
+        echo '<div class="notice notice-success is-dismissible"><p>';
+        esc_html_e('Se ha forzado la búsqueda de actualizaciones del plugin Corredora Online.', 'text-domain');
+        echo '</p></div>';
+    }
+}
