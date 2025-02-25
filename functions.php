@@ -48,6 +48,62 @@ add_action('admin_menu', 'add_corredora_online_submenu');
 
 // Creación de la página en back office
 function corredora_online_settings_page() {
+    // Obtenemos la API Key y el ID Corredora (almacenados previamente en la BD)
+    $stored_api_key        = esc_attr(get_option('api_key'));
+    $stored_corredora_id   = get_option('corredora_id');
+    // Obtenemos el vendedor actualmente guardado (si ya fue guardado antes)
+    $stored_vendedor_id    = get_option('corredora_vendedor_id');
+
+    // Inicializamos array para guardar las opciones (usuarios/vendedores) que llegan de la API
+    $vendedores_options = array();
+    // Variable para controlar si hay error al traer la data
+    $vendedores_error   = '';
+
+    // Llamamos a la API de vendedores SOLO si tenemos una API Key y un ID Corredora
+    if (!empty($stored_api_key) && !empty($stored_corredora_id)) {
+        // Armamos la URL con el query param ?idc=...
+        $url_usuarios = add_query_arg(
+            'idc',
+            $stored_corredora_id,
+            'https://atm.novelty8.com/webhook/api/corredora-online/usuarios'
+        );
+
+        // Realizamos la petición GET
+        $response = wp_remote_get(
+            $url_usuarios,
+            array(
+                'headers' => array(
+                    'X-API-KEY' => $stored_api_key
+                ),
+                'timeout' => 45
+            )
+        );
+
+        if ( is_wp_error($response) ) {
+            // Error de conexión (o timeout)
+            $vendedores_error = 'No se pudo obtener la lista de vendedores: error de conexión.';
+        } else {
+            // Extraemos el cuerpo de la respuesta
+            $body = wp_remote_retrieve_body($response);
+            $data = json_decode($body, true);
+            
+            // Verificamos que cumpla el formato esperado
+            if (
+                isset($data[0]['estado']) && 
+                $data[0]['estado'] === 'exitoso' && 
+                isset($data[0]['usuarios']) &&
+                is_array($data[0]['usuarios'])
+            ) {
+                // Guardamos la lista de usuarios/vendedores
+                $vendedores_options = $data[0]['usuarios'];
+            } else {
+                $vendedores_error = 'No se pudo obtener la lista de vendedores: error en la respuesta.';
+            }
+        }
+    } else {
+        // Si no hay API Key aún, podemos mostrar un mensaje o dejar el select vacío.
+        $vendedores_error = 'Ingrese y guarde primero su API Key para cargar la lista de vendedores.';
+    }
     ?>
     <style>
         .custom-page {
@@ -66,30 +122,65 @@ function corredora_online_settings_page() {
     </style>
     <div class="wrap custom-page">
         <h2 style="font-family: 'Nunito', sans-serif; margin-top: 20px; margin-bottom: 0px;">Corredora Online</h2>
-        <p style="font-family: 'Nunito', sans-serif; margin-top: 5px; margin-left: 1px; margin-bottom: 30px;">Nuestro plugin de Wordpress permite generar una conexión directa con el sistema, permitiendo editar la información de su web directo desde Corredora Online, además le entrega otras funcionalidades valiosas, encuentre mayor información en Configuración > Integraciones > Wordpress.</p>
-        
-        
+        <p style="font-family: 'Nunito', sans-serif; margin-top: 5px; margin-left: 1px; margin-bottom: 30px;">
+            Nuestro plugin de Wordpress permite generar una conexión directa con el sistema, permitiendo editar la información de su web directo desde Corredora Online, además le entrega otras funcionalidades valiosas, encuentre mayor información en Configuración > Integraciones > Wordpress.
+        </p>
+
         <?php
         // Verificar si el formulario se ha enviado y mostrar un mensaje de confirmación
         settings_errors('corredora-settings');
         ?>
         <form method="post" action="" style="background-color: #ffffff; border-radius: 12px; padding: 20px;">
             <div class="corredora-form-container" style="font-family: 'Nunito', sans-serif; padding-top: 20px; padding-bottom: 30px; padding-left: 18px; padding-right: 20px;">
-                <label for="corredora_id" style="display: block; font-size: 15px; margin-bottom: 10px;">ID Corredora</label>
-                <input type="text" name="corredora_id" id="corredora_id" value="<?php echo esc_attr(get_option('corredora_id')); ?>" style="margin-bottom: 20px; border-radius: 12px; padding: 6px 12px; color: #313131; font-size: 15px; border: 1px solid #BABABA; width: 100%;" required />
                 
+                <!-- CAMPO: ID Corredora -->
+                <label for="corredora_id" style="display: block; font-size: 15px; margin-bottom: 10px;">ID Corredora</label>
+                <input type="text" name="corredora_id" id="corredora_id" 
+                    value="<?php echo esc_attr(get_option('corredora_id')); ?>" 
+                    style="margin-bottom: 20px; border-radius: 12px; padding: 6px 12px; color: #313131; font-size: 15px; border: 1px solid #BABABA; width: 100%;" 
+                    required 
+                />
+                
+                <!-- CAMPO: API KEY -->
                 <label for="api_key" style="display: block; font-size: 15px; margin-bottom: 10px;">API KEY</label>
                 <?php
-                // Obtener la API KEY almacenada
                 $stored_api_key = esc_attr(get_option('api_key'));
-                
-                // Mostrar solo los últimos 4 caracteres y ocultar la longitud real
                 $masked_api_key = str_repeat('*', max(0, strlen($stored_api_key) - 4)) . substr($stored_api_key, -4);
                 ?>
-                <input type="text" name="api_key" id="api_key" value="<?php echo $masked_api_key; ?>" style="margin-bottom: 20px; border-radius: 12px; padding: 6px 12px; color: #313131; font-size: 15px; border: 1px solid #BABABA; width: 100%;" required />
+                <input type="text" name="api_key" id="api_key" 
+                    value="<?php echo $masked_api_key; ?>" 
+                    style="margin-bottom: 20px; border-radius: 12px; padding: 6px 12px; color: #313131; font-size: 15px; border: 1px solid #BABABA; width: 100%;" 
+                    required 
+                />
+
+                <!-- NUEVO CAMPO SELECT: Vendedor -->
+                <label for="corredora_vendedor_id" style="display: block; font-size: 15px; margin-bottom: 12px;">Vendedor al que se le asignarán las cotizaciones</label>
+                <select name="corredora_vendedor_id" id="corredora_vendedor_id" 
+                    style="margin-bottom: 30px; border-radius: 12px; padding: 6px 12px; color: #313131; font-size: 15px; border: 1px solid #BABABA; width: 100%;">
+                    <option value="">-- Seleccione un vendedor --</option>
+                    <?php if (!empty($vendedores_options)) : 
+                        foreach ($vendedores_options as $vendedor) {
+                            // Asumimos que cada $vendedor es array("id" => "...", "nombre" => "...", "apellido" => "...")
+                            $v_id = $vendedor['id'];
+                            $v_name = $vendedor['nombre'].' '.$vendedor['apellido'];
+                            $selected = ($v_id == $stored_vendedor_id) ? 'selected' : '';
+                            echo "<option value='".esc_attr($v_id)."' $selected>".esc_html($v_name)."</option>";
+                        }
+                    endif; ?>
+                </select>
+
+                <?php
+                // Si hay error al traer vendedores, lo mostramos
+                if (!empty($vendedores_error)) {
+                    echo '<p style="color:red; margin-top:-10px;">'.$vendedores_error.'</p>';
+                }
+                ?>
                 
                 <br>
-                <input type="submit" name="submit" class="button-primary custom-button" value="Actualizar" style="padding-top: 7px; padding-bottom: 7px; font-size: 15px; font-weight: 400;" />
+                <input type="submit" name="submit" class="button-primary custom-button" 
+                    value="Actualizar" 
+                    style="padding-top: 7px; padding-bottom: 7px; font-size: 15px; font-weight: 400;" 
+                />
             </div>
         </form>
     </div>
@@ -123,16 +214,17 @@ function crear_pagina_cotizacion() {
 function save_corredora_settings() {
     if (isset($_POST['submit'])) {
         $corredora_id = sanitize_text_field($_POST['corredora_id']);
-        $api_key_input = sanitize_text_field($_POST['api_key']); // La API KEY con asteriscos
-        $api_key_stored = get_option('api_key'); // La API KEY almacenada sin asteriscos
+        $api_key_input = sanitize_text_field($_POST['api_key']);
+        $api_key_stored = get_option('api_key');
+        
+        // Nuevo: obtenemos la selección del Vendedor
+        $vendedor_id = isset($_POST['corredora_vendedor_id']) ? sanitize_text_field($_POST['corredora_vendedor_id']) : '';
 
-        // Si el campo de entrada contiene asteriscos, utiliza la API KEY almacenada sin asteriscos
+        // Lógica para resolver si la API Key viene con * enmascarados...
         $api_key = (strpos($api_key_input, '*') === false) ? $api_key_input : $api_key_stored;
 
         if (!empty($corredora_id) && !empty($api_key)) {
             $site_url = get_site_url();
-            
-            // Realizar la solicitud HTTP
             $response = wp_remote_post('https://atm.novelty8.com/webhook/api/corredora-online/validate-wp', array(
                 'method'    => 'POST',
                 'body'      => array(
@@ -141,39 +233,36 @@ function save_corredora_settings() {
                     'url'       => $site_url
                 ),
                 'timeout'   => 45,
-                'headers'   => array(
-                    'Content-Type' => 'application/x-www-form-urlencoded'
-                )
+                'headers'   => array('Content-Type' => 'application/x-www-form-urlencoded')
             ));
 
             if (is_wp_error($response)) {
-                // Error en la solicitud HTTP
                 $message = 'Ocurrió un error al validar la API KEY. Por favor, inténtelo de nuevo.';
                 $class = 'error';
             } else {
                 $status_code = wp_remote_retrieve_response_code($response);
                 if ($status_code == 200) {
-                    // Guardar las opciones si la validación es exitosa
+                    // VALIDACIÓN OK -> guardamos todo
                     update_option('corredora_id', $corredora_id);
                     update_option('api_key', $api_key);
-                    crear_pagina_cotizacion();
                     
-                    // Agregar un mensaje de confirmación
+                    // NUEVO: guardamos la opción del vendedor seleccionado
+                    update_option('corredora_vendedor_id', $vendedor_id);
+
+                    crear_pagina_cotizacion(); // tu lógica original
+
                     $message = 'La información ha sido guardada con éxito.';
                     $class = 'updated';
                 } else {
-                    // Agregar un mensaje de error
                     $message = 'La validación de la API KEY ha fallado. Por favor, verifique los datos ingresados.';
                     $class = 'error';
                 }
             }
         } else {
-            // Agregar un mensaje de error
             $message = 'Ocurrió un error, inténtelo de nuevo o contacte a soporte.';
             $class = 'error';
         }
         
-        // Mostrar el mensaje solo una vez
         add_settings_error('corredora-settings', 'corredora-settings', $message, $class);
     }
 }
@@ -1333,7 +1422,7 @@ function corredora_online_cotizador($atts)
                 var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
                 var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
                 var producto = "347";
-                var idVendedor = "41807";
+                var idVendedor = "<?php echo esc_js(get_option('corredora_vendedor_id')); ?>";
                 var notificarCot = true;
                 
                 var data = {
