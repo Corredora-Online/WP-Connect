@@ -1063,6 +1063,8 @@ function corredora_online_cotizador($atts)
                     <label for="año">Año</label>
                     <input type="text" id="año" name="año">
                 </p>
+                <!-- Campo oculto para guardar el parámetro "tipo" obtenido de la API -->
+                <input type="hidden" id="tipoVehiculo" name="tipoVehiculo" value="">
                 <p>
                     <button type="button" class="next-step">Siguiente</button>
                 </p>
@@ -1155,7 +1157,7 @@ function corredora_online_cotizador($atts)
             document.getElementById('loading-indicator').style.display = 'none';
         }
 
-        // Valida RUT
+        // Función para validar el RUT
         function validarRUT(rut) {
             rut = rut.replace(/[.-]/g, '');
             const dv = rut.slice(-1);
@@ -1229,6 +1231,8 @@ function corredora_online_cotizador($atts)
                                 document.getElementById('marca').value = data.data.marca;
                                 document.getElementById('modelo').value = data.data.modelo;
                                 document.getElementById('año').value = data.data.año;
+                                // Asignar el valor del parámetro "tipo" (no "type") al campo oculto
+                                document.getElementById('tipoVehiculo').value = data.data.tipo;
                                 
                                 errorMessage.style.display = 'none';
                                 patenteInput.classList.remove('invalid-input');
@@ -1335,6 +1339,15 @@ function corredora_online_cotizador($atts)
             }, 500);
         });
 
+        // Función para detectar el tipo de cliente según el nombre y apellido
+        function detectarTipoCliente() {
+            var nombre = document.getElementById('nombre').value.trim();
+            var apellido = document.getElementById('apellido').value.trim();
+            var fullName = (nombre + " " + apellido).toUpperCase();
+            var regexEmpresa = /SPA|LIMITADA|LTDA|EIRL|S\.A\.?|S A\.?|SOCIEDAD ANÓNIMA|SOCIEDAD COMERCIAL|COMERCIAL/;
+            return regexEmpresa.test(fullName) ? "empresa" : "persona-natural";
+        }
+
         // Habilitar / deshabilitar botón "Cotizar online"
         function updateSubmitButton() {
             var submitButton = document.getElementById('submit-button');
@@ -1425,6 +1438,9 @@ function corredora_online_cotizador($atts)
                 var idVendedor = "<?php echo esc_js(get_option('corredora_vendedor_id')); ?>";
                 var notificarCot = true;
                 
+                // Detectar dinámicamente el tipo de cliente usando la función
+                var tipoCliente = detectarTipoCliente();
+
                 var data = {
                     producto: producto,
                     idc: corredoraId,
@@ -1432,10 +1448,15 @@ function corredora_online_cotizador($atts)
                     patenteVehiculo: document.getElementById('patente').value,
                     marcaVehiculo: document.getElementById('marca').value,
                     modeloVehiculo: document.getElementById('modelo').value,
+                    // Enviar además región, comuna, tipo de vehículo y el año (anoVehiculo)
+                    region: document.getElementById('region').value,
+                    comuna: document.getElementById('comuna').value,
+                    tipoVehiculo: document.getElementById('tipoVehiculo').value,
+                    anoVehiculo: document.getElementById('año').value,
                     rut: document.getElementById('rut').value,
-                    'tipo-cliente': 'natural',
-                    nombre: nombreInput.value,
-                    apellido: apellidoInput.value,
+                    'tipo-cliente': tipoCliente,
+                    nombre: document.getElementById('nombre').value,
+                    apellido: document.getElementById('apellido').value,
                     email: document.getElementById('correo').value,
                     celular: document.getElementById('telefono').value,
                     notificar: notificarCot
