@@ -1622,11 +1622,13 @@ add_action('wp_footer', 'slider_aseguradoras_assets');
 
 function corredora_online_login_shortcode($atts) {
 
-
     $border_radius = get_option('co-border-radius', '10px');
-    $color_fondo = get_option('co-color-fondo', '#52868E');
-    $color_texto = get_option('co-color-texto', '#ffffff');
+    $color_fondo   = get_option('co-color-fondo', '#52868E');
+    $color_texto   = get_option('co-color-texto', '#ffffff');
 
+    // 1. Obtenemos el valor dinámico de la opción "corredora_id"
+    //    Si no existe, le damos por defecto "15989" (o bien podrías dejarlo vacío o lo que quieras).
+    $idcl_value = get_option('corredora_id', '15989');
 
     $html = '
     <style>
@@ -1674,35 +1676,39 @@ function corredora_online_login_shortcode($atts) {
     </div>
 
     <script>
-            function redirectToUrl() {
-                const rut = document.getElementById("loginRut").value;
-                const url = `https://atm.novelty8.com/webhook/auth-login?idcl=15989&t=c&c=cl&port_validate=email&port=customer&roll=${rut}`;
-                
-                window.open(url, "_blank");
-
-                document.getElementById("formLoginContainer").style.display = "none";
-                document.getElementById("messageLoginSuccess").style.display = "block";
-
-                const listLoginSuccess = document.getElementById("listLoginSuccess");
-                const coLoginSuccess = document.getElementById("coLoginSuccess");
-
-                if (listLoginSuccess) {
-                    listLoginSuccess.style.display = "none";
-                }
-
-                if (coLoginSuccess) {
-                    coLoginSuccess.style.display = "none";
-                }
-            }
-
-            function formatearRUT(input) {
-                let rut = input.value.replace(/\\./g, "").replace(/-/g, "");
-                if (rut.length > 1) {
-                    rut = rut.replace(/^(\d{1,2})(\d{3})(\d{3})([\\dkK])?$/, "$1.$2.$3-$4"); // Aplicar formato
-                }
-                input.value = rut;
-            }
+        function redirectToUrl() {
+            const rut = document.getElementById("loginRut").value;
             
+            // 2. Inyectamos la variable idcl desde PHP:
+            const idcl = "' . esc_js($idcl_value) . '";
+
+            // 3. Construimos la URL con el idcl dinámico
+            const url = `https://atm.novelty8.com/webhook/auth-login?idcl=${idcl}&t=c&c=cl&port_validate=email&port=customer&roll=${rut}`;
+
+            window.open(url, "_blank");
+
+            document.getElementById("formLoginContainer").style.display = "none";
+            document.getElementById("messageLoginSuccess").style.display = "block";
+
+            const listLoginSuccess = document.getElementById("listLoginSuccess");
+            const coLoginSuccess   = document.getElementById("coLoginSuccess");
+
+            if (listLoginSuccess) {
+                listLoginSuccess.style.display = "none";
+            }
+
+            if (coLoginSuccess) {
+                coLoginSuccess.style.display = "none";
+            }
+        }
+
+        function formatearRUT(input) {
+            let rut = input.value.replace(/\\./g, "").replace(/-/g, "");
+            if (rut.length > 1) {
+                rut = rut.replace(/^(\\d{1,2})(\\d{3})(\\d{3})([\\dkK])?$/, "$1.$2.$3-$4");
+            }
+            input.value = rut;
+        }
     </script>';
 
     return $html;
