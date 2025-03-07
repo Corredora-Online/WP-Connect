@@ -1,6 +1,6 @@
 <?php
 
-// Refresh var to update status #6
+// Refresh var to update status #8
 
 // -- ↕ Iniciación Código Page Back Office
 
@@ -1731,8 +1731,114 @@ add_shortcode('Corredora_Online_Login', 'corredora_online_login_shortcode');
 
 
 
-
 // -- ↕ Terminación Código Shortcode [Corredora_Online_Login]
-// -- ↕ --
+// -- ↕ Iniciación Código Shortcode [Corredora_Online_Primas]
+
+
+function corredora_online_primas_shortcode() {
+    // Consulta todos los posts del CPT 'aseguradoras'
+    $args = array(
+        'post_type'      => 'aseguradoras',
+        'posts_per_page' => -1,
+        'post_status'    => 'publish',
+        'orderby'        => 'title',
+        'order'          => 'ASC'
+    );
+
+    $query = new WP_Query($args);
+
+    // Verificamos si hay aseguradoras
+    if ($query->have_posts()) {
+        // Iniciamos la variable de salida HTML
+        $output = '<div class="aseguradoras-grid">';
+
+        while ($query->have_posts()) {
+            $query->the_post();
+
+            // Obtener título, thumbnail y 'enlace_de_pago'
+            $title       = get_the_title();
+            $thumbnail   = get_the_post_thumbnail_url(get_the_ID(), 'full');
+            $enlace_pago = get_post_meta(get_the_ID(), 'enlace_de_pago', true);
+
+            $output .= '<div class="aseguradoras-grid-item">';
+
+                // Si existe enlace_de_pago, hacemos clickable toda la casilla
+                if (!empty($enlace_pago)) {
+                    $output .= '<a href="' . esc_url($enlace_pago) . '" target="_blank" rel="noopener">';
+                }
+
+                // Mostrar imagen
+                if ($thumbnail) {
+                    // loading="lazy" para optimizar carga/caché
+                    $output .= '<img src="' . esc_url($thumbnail) . '" alt="' . esc_attr($title) . '" loading="lazy" />';
+                }
+
+                // Mostrar el nombre debajo de la imagen
+                $output .= '<p>' . esc_html($title) . '</p>';
+
+                if (!empty($enlace_pago)) {
+                    $output .= '</a>';
+                }
+
+            $output .= '</div>';
+        }
+
+        $output .= '</div>'; // fin de .aseguradoras-grid
+
+        wp_reset_postdata();
+        return $output;
+    } else {
+        return '<p>No hay aseguradoras configuradas.</p>';
+    }
+}
+add_shortcode('Corredora_Online_Primas', 'corredora_online_primas_shortcode');
+
+function corredora_online_primas_styles() {
+    echo "
+<style>
+.aseguradoras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 60px;
+    align-items: start;
+}
+
+.aseguradoras-grid-item {
+    text-align: center;
+}
+
+.aseguradoras-grid-item img {
+    max-width: 80%;
+    height: auto;
+    display: block;
+    margin: 0 auto 7px auto;
+    object-fit: contain;
+}
+
+.aseguradoras-grid-item p {
+    margin: 0;
+    font-size: 14px;
+    color: #757575;
+}
+
+.aseguradoras-grid-item a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.aseguradoras-grid-item a:hover {
+    text-decoration: none;
+}
+</style>
+    ";
+}
+add_action('wp_head', 'corredora_online_primas_styles');
+
+
+
+// -- ↕ Terminación Código Shortcode [Corredora_Online_Primas]
+// -- ↕ Iniciación Código
+
+
 
 ?>
