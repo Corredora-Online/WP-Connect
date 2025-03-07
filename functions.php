@@ -1732,11 +1732,14 @@ add_shortcode('Corredora_Online_Login', 'corredora_online_login_shortcode');
 
 
 // -- ↕ Terminación Código Shortcode [Corredora_Online_Login]
-// -- ↕ Iniciación Código Shortcode [Corredora_Online_Primas]
+// -- ↕ Iniciación Código Shortcode [Corredora_Online_Primas] y  [Corredora_Online_Siniestros]
 
 
-function corredora_online_primas_shortcode() {
-    // Consulta todos los posts del CPT 'aseguradoras'
+function corredora_online_aseguradoras_grid($tipo = 'primas') {
+    // Definir la meta key según $tipo
+    $meta_key = ($tipo === 'siniestros') ? 'enlace_siniestros' : 'enlace_de_pago';
+
+    // Consulta CPT 'aseguradoras'
     $args = array(
         'post_type'      => 'aseguradoras',
         'posts_per_page' => -1,
@@ -1744,100 +1747,121 @@ function corredora_online_primas_shortcode() {
         'orderby'        => 'title',
         'order'          => 'ASC'
     );
-
     $query = new WP_Query($args);
 
-    // Verificamos si hay aseguradoras
     if ($query->have_posts()) {
-        // Iniciamos la variable de salida HTML
         $output = '<div class="aseguradoras-grid">';
 
         while ($query->have_posts()) {
             $query->the_post();
-
-            // Obtener título, thumbnail y 'enlace_de_pago'
-            $title       = get_the_title();
-            $thumbnail   = get_the_post_thumbnail_url(get_the_ID(), 'full');
-            $enlace_pago = get_post_meta(get_the_ID(), 'enlace_de_pago', true);
+            $title     = get_the_title();
+            $thumbnail = get_the_post_thumbnail_url(get_the_ID(), 'full');
+            // Tomamos la meta key definida: 'enlace_de_pago' o 'enlace_siniestros'
+            $enlace    = get_post_meta(get_the_ID(), $meta_key, true);
 
             $output .= '<div class="aseguradoras-grid-item">';
 
-                // Si existe enlace_de_pago, hacemos clickable toda la casilla
-                if (!empty($enlace_pago)) {
-                    $output .= '<a href="' . esc_url($enlace_pago) . '" target="_blank" rel="noopener">';
-                }
+            // Si existe el enlace, abrimos <a>
+            if (!empty($enlace)) {
+                $output .= '<a href="' . esc_url($enlace) . '" target="_blank" rel="noopener">';
+            }
 
-                // Mostrar imagen
-                if ($thumbnail) {
-                    // loading="lazy" para optimizar carga/caché
-                    $output .= '<img src="' . esc_url($thumbnail) . '" alt="' . esc_attr($title) . '" loading="lazy" />';
-                }
+            // Mostrar imagen
+            if ($thumbnail) {
+                $output .= '<img src="' . esc_url($thumbnail) . '" alt="' . esc_attr($title) . '" loading="lazy" />';
+            }
 
-                // Mostrar el nombre debajo de la imagen
-                $output .= '<p>' . esc_html($title) . '</p>';
+            // Mostrar nombre
+            $output .= '<p>' . esc_html($title) . '</p>';
 
-                if (!empty($enlace_pago)) {
-                    $output .= '</a>';
-                }
+            // Cerramos <a>
+            if (!empty($enlace)) {
+                $output .= '</a>';
+            }
 
             $output .= '</div>';
         }
 
-        $output .= '</div>'; // fin de .aseguradoras-grid
-
+        $output .= '</div>';
         wp_reset_postdata();
         return $output;
+
     } else {
         return '<p>No hay aseguradoras configuradas.</p>';
     }
 }
+
+// =============================
+// = 2. SHORTCODE DE PRIMAS    =
+// =============================
+/**
+ * [Corredora_Online_Primas]
+ * Muestra la misma grilla de aseguradoras, con enlace_de_pago.
+ */
+function corredora_online_primas_shortcode() {
+    return corredora_online_aseguradoras_grid('primas');
+}
 add_shortcode('Corredora_Online_Primas', 'corredora_online_primas_shortcode');
 
-function corredora_online_primas_styles() {
+// =============================
+// = 3. SHORTCODE DE SINIESTROS=
+// =============================
+/**
+ * [Corredora_Online_Siniestros]
+ * Muestra la grilla de aseguradoras, con enlace_siniestros.
+ */
+function corredora_online_siniestros_shortcode() {
+    return corredora_online_aseguradoras_grid('siniestros');
+}
+add_shortcode('Corredora_Online_Siniestros', 'corredora_online_siniestros_shortcode');
+
+// =============================
+// = 4. ESTILOS DE LA GRILLA   =
+// =============================
+/**
+ * Estilos compartidos para la grilla de aseguradoras.
+ */
+function corredora_online_aseguradoras_grid_styles() {
     echo "
-<style>
-.aseguradoras-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 50px;
-    align-items: start;
-}
-
-.aseguradoras-grid-item {
-    text-align: center;
-}
-
-.aseguradoras-grid-item img {
-    max-width: 60%;
-    height: auto;
-    display: block;
-    margin: 0 auto 7px auto;
-    object-fit: contain;
-}
-
-.aseguradoras-grid-item p {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 300;
-    color: #757575;
-}
-
-.aseguradoras-grid-item a {
-    text-decoration: none;
-    color: inherit;
-}
-
-.aseguradoras-grid-item a:hover {
-    text-decoration: none;
-}
-</style>
+    <style>
+    .aseguradoras-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 50px;
+        align-items: start;
+    }
+    .aseguradoras-grid-item {
+        text-align: center;
+    }
+    .aseguradoras-grid-item img {
+        max-width: 60%;
+        height: auto;
+        display: block;
+        margin: 0 auto 7px auto;
+        object-fit: contain;
+    }
+    .aseguradoras-grid-item p {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 300;
+        color: #757575;
+    }
+    .aseguradoras-grid-item a {
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+    }
+    .aseguradoras-grid-item a:hover {
+        text-decoration: none;
+    }
+    </style>
     ";
 }
-add_action('wp_head', 'corredora_online_primas_styles');
+add_action('wp_head', 'corredora_online_aseguradoras_grid_styles');
 
 
 
-// -- ↕ Terminación Código Shortcode [Corredora_Online_Primas]
+// -- ↕ Terminación Código Shortcode [Corredora_Online_Primas] y  [Corredora_Online_Siniestros]
 // -- ↕ Iniciación Código
 
 
