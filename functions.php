@@ -1799,7 +1799,7 @@ function corredora_online_primas_styles() {
 .aseguradoras-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 60px;
+    gap: 50px;
     align-items: start;
 }
 
@@ -1808,7 +1808,7 @@ function corredora_online_primas_styles() {
 }
 
 .aseguradoras-grid-item img {
-    max-width: 80%;
+    max-width: 60%;
     height: auto;
     display: block;
     margin: 0 auto 7px auto;
@@ -1817,7 +1817,8 @@ function corredora_online_primas_styles() {
 
 .aseguradoras-grid-item p {
     margin: 0;
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 300;
     color: #757575;
 }
 
