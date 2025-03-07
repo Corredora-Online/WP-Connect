@@ -569,20 +569,26 @@ function procesar_peticion_endpoint_personalizado($data) {
     $body = wp_remote_retrieve_body($response);
     $data = json_decode($body, true);
 
-    if (!is_array($data) || !isset($data[0]['estado']) || $data[0]['estado'] !== 'exitoso' || !isset($data[0]['aseguradoras'])) {
+    if (!is_array($data) 
+        || !isset($data[0]['estado']) 
+        || $data[0]['estado'] !== 'exitoso'
+        || !isset($data[0]['aseguradoras'])) {
         return new WP_REST_Response('Error: Respuesta no válida de la API.', 500);
     }
 
+    // Obtener IDs de las aseguradoras que vienen en la respuesta
     $aseguradoras_ids = array_map(function($aseguradora) {
         return $aseguradora['id'];
     }, $data[0]['aseguradoras']);
 
+    // Obtener todos los posts 'aseguradoras' existentes en WP
     $existing_posts = get_posts(array(
-        'post_type' => 'aseguradoras',
+        'post_type'   => 'aseguradoras',
         'numberposts' => -1,
         'post_status' => 'any',
     ));
 
+    // Eliminar las aseguradoras que no aparezcan en la nueva respuesta
     foreach ($existing_posts as $post) {
         $post_id = $post->ID;
         $id_aseguradora = get_post_meta($post_id, 'id_aseguradora', true);
@@ -592,16 +598,15 @@ function procesar_peticion_endpoint_personalizado($data) {
             if ($thumbnail_id) {
                 wp_delete_attachment($thumbnail_id, true);
             }
-
             wp_delete_post($post_id, true);
         }
     }
 
-    // Crear o actualizar posts con la información recibida de la API
+    // Crear o actualizar posts con la información recibida
     foreach ($data[0]['aseguradoras'] as $aseguradora) {
         $id_aseguradora = $aseguradora['id'];
 
-        // Verificar si ya existe un post con el mismo id_aseguradora
+        // Verificar si ya existe un post con ese 'id_aseguradora'
         $existing_post = get_posts(array(
             'post_type' => 'aseguradoras',
             'meta_key' => 'id_aseguradora',
@@ -610,15 +615,17 @@ function procesar_peticion_endpoint_personalizado($data) {
         ));
 
         if ($existing_post) {
+            // Si existe, lo actualizamos
             $post_id = $existing_post[0]->ID;
             wp_update_post(array(
-                'ID' => $post_id,
+                'ID'         => $post_id,
                 'post_title' => wp_strip_all_tags($aseguradora['nombre']),
             ));
         } else {
+            // Si no existe, lo creamos
             $post_id = wp_insert_post(array(
-                'post_title' => wp_strip_all_tags($aseguradora['nombre']),
-                'post_type' => 'aseguradoras',
+                'post_title'  => wp_strip_all_tags($aseguradora['nombre']),
+                'post_type'   => 'aseguradoras',
                 'post_status' => 'publish'
             ));
 
@@ -627,6 +634,11 @@ function procesar_peticion_endpoint_personalizado($data) {
             }
         }
 
+        // **Agregar o actualizar los nuevos meta fields**: 'enlace_de_pago' y 'enlace_siniestros'
+        update_post_meta($post_id, 'enlace_de_pago',      $aseguradora['enlace_de_pago']);
+        update_post_meta($post_id, 'enlace_siniestros',   $aseguradora['enlace_siniestros']);
+
+        // Asignar (o no) la imagen destacada si no existe una
         if (!empty($aseguradora['logotipo']) && !has_post_thumbnail($post_id)) {
             $image_url = $aseguradora['logotipo'];
             $image_name = basename($image_url);
@@ -640,11 +652,11 @@ function procesar_peticion_endpoint_personalizado($data) {
                 $wp_upload_dir = wp_upload_dir();
 
                 $attachment = array(
-                    'guid' => $wp_upload_dir['url'] . '/' . $file_name,
+                    'guid'           => $wp_upload_dir['url'] . '/' . $file_name,
                     'post_mime_type' => $file_type['type'],
-                    'post_title' => $attachment_title,
-                    'post_content' => '',
-                    'post_status' => 'inherit'
+                    'post_title'     => $attachment_title,
+                    'post_content'   => '',
+                    'post_status'    => 'inherit'
                 );
 
                 $attach_id = wp_insert_attachment($attachment, $file_path, $post_id);
@@ -655,11 +667,13 @@ function procesar_peticion_endpoint_personalizado($data) {
                     wp_update_attachment_metadata($attach_id, $attach_data);
                     set_post_thumbnail($post_id, $attach_id);
                 } else {
+                    // En caso de error, si es un post recién creado, lo borramos
                     if (!$existing_post) {
                         wp_delete_post($post_id, true);
                     }
                 }
             } else {
+                // En caso de error en upload
                 if (!$existing_post) {
                     wp_delete_post($post_id, true);
                 }
