@@ -1862,8 +1862,175 @@ add_action('wp_head', 'corredora_online_aseguradoras_grid_styles');
 
 
 // -- ↕ Terminación Código Shortcode [Corredora_Online_Primas] y  [Corredora_Online_Siniestros]
-// -- ↕ Iniciación Código
+// -- ↕ Iniciación Código Shortcode [Corredora_Online_Valoraciones]
+
+function corredora_online_valoraciones_shortcode($atts) {
+    // 1. Definir los parámetros por defecto y mezclar con los pasados en el shortcode
+    $args = shortcode_atts(array(
+        'columns'    => '3',          // Número de columnas en la cuadrícula
+        'limit'      => '-1',         // -1 para mostrar todas las valoraciones
+        'star_color' => '#FFD700',    // Color de las estrellas (dorado por defecto)
+        'box_bg'     => '#f9f9f9',    // Fondo de cada caja
+        'text_color' => '#333333',    // Color del texto dentro de la caja
+    ), $atts, 'Corredora_Online_Valoraciones');
+
+    // 2. Convertir los parámetros a valores utilizables
+    $columns     = max(1, intval($args['columns']));  // forzamos al menos 1
+    $limit       = intval($args['limit']);
+    $star_color  = sanitize_hex_color($args['star_color']) ?: '#FFD700';
+    $box_bg      = sanitize_hex_color($args['box_bg'])     ?: '#f9f9f9';
+    $text_color  = sanitize_hex_color($args['text_color']) ?: '#333333';
+
+    $query_args = array(
+        'post_type'      => 'valoraciones',
+        'posts_per_page' => $limit,
+        'post_status'    => 'publish',
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+        'meta_query'     => array(
+            array(
+                'key'     => 'promedio',
+                'value'   => 3,
+                'compare' => '>',
+                'type'    => 'NUMERIC',
+            ),
+        ),
+    );
+    $valoraciones_query = new WP_Query($query_args);
+
+    // 4. Verificamos si hay valoraciones
+    if (!$valoraciones_query->have_posts()) {
+        return '<p>No hay valoraciones disponibles.</p>';
+    }
+
+    // Obtenemos el ID de la corredora, para el link de "Escribir una valoración"
+    $corredora_id = get_option('corredora_id', 'XXXX'); // Ajusta tu valor por defecto si gustas
+    // Armamos la URL
+    $link_encuesta = 'https://corredoraonline.com/cv/encuesta-de-satisfaccion/?ilc=' . urlencode($corredora_id);
+
+    // 5. Generamos HTML
+    ob_start();
+    ?>
+    <div class="co-valoraciones-grid">
+    <?php
+    while ($valoraciones_query->have_posts()) {
+        $valoraciones_query->the_post();
+        // Extraer metadatos
+        $nombre      = get_post_meta(get_the_ID(), 'nombre', true);
+        $apellido    = get_post_meta(get_the_ID(), 'apellido', true);
+        $comentarios = get_post_meta(get_the_ID(), 'comentarios', true);
+        $promedio    = get_post_meta(get_the_ID(), 'promedio', true);
+
+        // Convertir 'promedio' a número
+        $promedio_num = floatval($promedio);
+        if ($promedio_num < 0)  { $promedio_num = 0; }
+        if ($promedio_num > 5) { $promedio_num = 5; }
+        ?>
+        <div class="co-valoracion-item">
+            <div class="co-valoracion-nombre">
+                <?php echo esc_html($nombre . ' ' . $apellido); ?>
+            </div>
+            <div class="co-valoracion-estrellas">
+                <?php echo corredora_online_estrella_html($promedio_num, $star_color); ?>
+            </div>
+            <div class="co-valoracion-comentarios">
+                <?php echo nl2br(esc_html($comentarios)); ?>
+            </div>
+        </div>
+        <?php
+    }
+    ?>
+    </div>
+    <!-- Footer con los 2 enlaces (izq y der) -->
+    <div class="co-valoraciones-footer">
+        <a class="co-valoraciones-left" 
+           href="<?php echo esc_url($link_encuesta); ?>" 
+           target="_blank">Escribir una valoración</a>
+
+        <a class="co-valoraciones-right" 
+           href="https://corredoraonline.com" 
+           target="_blank">Verificado por Corredora Online</a>
+    </div>
+
+    <style>
+    /* GRID principal con N columnas */
+    .co-valoraciones-grid {
+        display: grid;
+        grid-template-columns: repeat(<?php echo $columns; ?>, 1fr);
+        gap: 22px;
+    }
+    /* Caja de cada valoracion */
+    .co-valoracion-item {
+        background-color: <?php echo esc_attr($box_bg); ?>;
+        border-radius: 8px;
+        padding: 22px;
+        color: <?php echo esc_attr($text_color); ?>;
+        font-family: sans-serif;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .co-valoracion-nombre {
+        font-size: 15px;
+        font-weight: 600;
+    }
+    .co-valoracion-estrellas {
+        margin-bottom: 8px;
+        font-size: 0; /* para evitar espacios en inline-block */
+    }
+    .co-valoracion-comentarios {
+        font-size: 14px;
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+    /* Estrella individual */
+    .co-star {
+        display: inline-block;
+        color: <?php echo esc_attr($star_color); ?>;
+        font-size: 15px;
+    }
+    /* Footer con los 2 enlaces */
+    .co-valoraciones-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        padding: 0 2px;
+    }
+    .co-valoraciones-footer a {
+        font-size: 11px;
+        color: #C2C2C2;
+        font-weight: 300;
+        text-decoration: none;
+        font-family: sans-serif;
+    }
+    .co-valoraciones-footer a:hover {
+        text-decoration: underline;
+    }
+    </style>
+    <?php
+
+    wp_reset_postdata();
+    return ob_get_clean();
+}
+add_shortcode('Corredora_Online_Valoraciones', 'corredora_online_valoraciones_shortcode');
 
 
+/**
+ * Función auxiliar para generar estrellas
+ * Recibe un valor 0..5 y colorea '★' o deja en opacidad parcial.
+ */
+function corredora_online_estrella_html($promedio_num, $star_color = '#FFD700') {
+    $rounded = round($promedio_num);  // redondeo (0..5)
+    $html = '';
+    for ($i=1; $i<=5; $i++) {
+        if ($i <= $rounded) {
+            // Estrella llena
+            $html .= '<span class="co-star">★</span>';
+        } else {
+            // Estrella vacía
+            $html .= '<span class="co-star" style="opacity:0.3">★</span>';
+        }
+    }
+    return $html;
+}
 
 ?>
