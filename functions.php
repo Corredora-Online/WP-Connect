@@ -1,6 +1,5 @@
 <?php
 
-
 // -- ↕ Iniciación Código Page Back Office
 
 // =========================================================
@@ -53,6 +52,8 @@ add_action('admin_menu', 'add_corredora_online_submenu');
 function corredora_online_settings_page() {
     $stored_api_key      = trim(get_option('api_key'));
     $stored_corredora_id = trim(get_option('corredora_id'));
+    // --- (NUEVO) Tipografía: obtener la tipografía guardada
+    $stored_font_choice  = trim(get_option('co_font_choice'));
 
     $hay_integracion = (!empty($stored_api_key) && !empty($stored_corredora_id));
     ?>
@@ -227,6 +228,31 @@ function corredora_online_settings_page() {
                 <?php endif; ?>
             </div>
         </div>
+
+        <!-- Caja 3: Tipografía personalizada (NUEVO) -->
+        <div class="co-config-box" id="boxTipografia"><!-- sin disabled, no depende de la integracion -->
+            <div class="co-config-box-header" data-target="tipografiaBox">
+                <span class="title-text">Colores y diseños corporativos</span>
+            </div>
+            <div class="co-config-box-content" id="tipografiaBox">
+                <label for="co_font_choice">Selecciona la tipografía que se usará en el plugin:</label>
+                <select name="co_font_choice" id="co_font_choice">
+                    <?php
+                    // Lista ampliada de fuentes populares
+                    $font_list = array(
+                        'Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Open Sans', 'Roboto',
+                        'Lato', 'Montserrat', 'Nunito', 'Poppins', 'Tajawal', 'Raleway', 
+                        'Oswald', 'Source Sans Pro', 'Courier New', 'Verdana', 'Tahoma', 
+                        'Trebuchet MS', 'Garamond', 'Comic Sans MS'
+                    );
+                    foreach ($font_list as $font) {
+                        $selected = ($stored_font_choice === $font) ? 'selected' : '';
+                        echo '<option value="' . esc_attr($font) . '" ' . $selected . '>' . esc_html($font) . '</option>';
+                    }
+                    ?>
+                </select>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -246,6 +272,7 @@ function corredora_online_settings_page() {
                     content.style.display = 'none';
                 } else {
                     content.style.display = 'block';
+
                     // Si es la caja 2 y está integrada => cargar vendedores
                     if(targetId === 'cotizacionesBox' && hayIntegracion){
                         cargarVendedores();
@@ -384,7 +411,7 @@ function corredora_online_settings_page() {
         }
 
         // -------------------------------------
-        // Al cambiar el select => guardamos via AJAX
+        // Al cambiar el vendedor => guardamos via AJAX
         // -------------------------------------
         const selVend = document.getElementById('corredora_vendedor_id');
         if(selVend){
@@ -401,6 +428,35 @@ function corredora_online_settings_page() {
                 .then(data => {
                     if(data.success){
                         mostrarToast('Se ha actualizado el Vendedor.');
+                    } else {
+                        alert('Error al guardar: ' + (data.data || 'Desconocido'));
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error de conexión');
+                });
+            });
+        }
+
+        // -------------------------------------
+        // (NUEVO) Al cambiar la tipografía => guardar vía AJAX
+        // -------------------------------------
+        const selTipografia = document.getElementById('co_font_choice');
+        if(selTipografia){
+            selTipografia.addEventListener('change', function(){
+                const val = this.value;
+                if(!val) return; 
+
+                const fData = new FormData();
+                fData.append('action', 'guardar_tipografia_personalizada');
+                fData.append('fuente', val);
+
+                fetch(ajaxurl, { method: 'POST', body: fData })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.success){
+                        mostrarToast('Tipografía guardada correctamente.');
                     } else {
                         alert('Error al guardar: ' + (data.data || 'Desconocido'));
                     }
@@ -431,7 +487,7 @@ function corredora_online_settings_page() {
 }
 
 // =========================================================
-// 3. Acciones AJAX: integrar, obtener vendedores, guardar vendedor
+// 3. Acciones AJAX: integrar, obtener vendedores, guardar vendedor, (NUEVO) guardar tipografía
 // =========================================================
 
 // 3.1 Integrar (Caja 1)
@@ -507,7 +563,6 @@ function ajax_obtener_vendedores_cotizador() {
         wp_send_json_error('Error en la respuesta de vendedores');
     }
 }
-
 add_action('wp_ajax_obtener_vendedores_cotizador', 'ajax_obtener_vendedores_cotizador');
 
 // 3.3 Guardar vendedor_id (Caja 2)
@@ -522,8 +577,17 @@ function ajax_guardar_vendedor_cotizaciones() {
 }
 add_action('wp_ajax_guardar_vendedor_cotizaciones', 'ajax_guardar_vendedor_cotizaciones');
 
+// 3.4 (NUEVO) Guardar tipografía seleccionada (Caja 3)
+function ajax_guardar_tipografia_personalizada() {
+    if(!current_user_can('manage_options')){
+        wp_send_json_error('No tienes permisos');
+    }
+    $nueva_fuente = sanitize_text_field($_POST['fuente'] ?? '');
+    update_option('co_font_choice', $nueva_fuente);
 
-
+    wp_send_json_success('Tipografía actualizada.');
+}
+add_action('wp_ajax_guardar_tipografia_personalizada', 'ajax_guardar_tipografia_personalizada');
 
 
 
