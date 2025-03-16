@@ -98,14 +98,16 @@ add_action('admin_menu', 'add_corredora_online_submenu');
 function corredora_online_settings_page() {
     $stored_api_key      = trim(get_option('api_key'));
     $stored_corredora_id = trim(get_option('corredora_id'));
-    // --- (NUEVO) Tipografía: obtener la tipografía guardada
     $stored_font_choice  = trim(get_option('co_font_choice'));
-    // (NUEVO) Obtenemos el color corporativo para mostrarlo sin permitir cambios
-    $stored_color_fondo  = trim(get_option('co-color-fondo', '#52868E'));
+
+    // Nuevos: color_fondo, color_texto y border_radius
+    $stored_color_fondo   = trim(get_option('co-color-fondo', '#52868E'));
+    $stored_color_texto   = trim(get_option('co-color-texto', '#FFFFFF'));
+    $stored_border_radius = trim(get_option('co-border-radius', '8px'));
 
     $hay_integracion = (!empty($stored_api_key) && !empty($stored_corredora_id));
     ?>
-    <style>
+<style>
     .custom-page {
         padding: 20px;
         font-family: 'Nunito', sans-serif;
@@ -118,20 +120,21 @@ function corredora_online_settings_page() {
         margin: 5px 0 30px 1px;
         font-size: 14px;
     }
+
     /* Toast de éxito */
     #co-toast-success {
         position: fixed;
-        top: 20px;
+        top: 52px;
         right: 20px;
         background: #fff;
         border: 1px solid #ddd;
         border-radius: 8px;
-        padding: 12px 16px;
+        padding: 14px 16px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         display: none;
         align-items: center;
-        gap: 8px;
-        font-size: 14px;
+        gap: 10px;
+        font-size: 17px;
         color: #333;
         z-index: 999999;
     }
@@ -139,6 +142,7 @@ function corredora_online_settings_page() {
         color: #28a745;
         font-weight: bold;
     }
+
     /* Cajas (acordeones) */
     .co-config-box {
         border: 1px solid #DCDCDC;
@@ -166,29 +170,52 @@ function corredora_online_settings_page() {
     }
     .co-config-box-content {
         display: none;
-        padding: 30px 32px 38px 32px;
+        padding: 34px 40px 48px 40px;
         font-size: 15px;
         color: #313131;
     }
     .co-config-box-content label {
         display: block;
         font-size: 16px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
-    .co-config-box-content input[type="text"],
-    .co-config-box-content select {
+
+    /* Eliminar bordes/padding internos en input color */
+    .co-config-box-content input[type="color"] {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border: 1px solid #bbb;
+        padding: 0 !important;
+        height: 36px;
+        border-radius: 8px;
+        margin-right: 10px;
+    }
+    .co-config-box-content input[type="color"]::-webkit-color-swatch-wrapper {
+        padding: 0;
+        border: none;
+    }
+    .co-config-box-content input[type="color"]::-webkit-color-swatch {
+        border: none;
+    }
+
+    .co-config-box-content select,
+    .co-config-box-content input[type="text"] {
         width: 100%;
         padding: 6px 12px;
         font-size: 15px;
         border: 1px solid #BABABA;
         border-radius: 12px;
         color: #313131;
+        box-sizing: border-box;
     }
+
     .co-config-box-content .description {
         color: red;
         margin-top: 5px;
         font-size: 14px;
     }
+
     /* Botón “Integrar” => 100% */
     .co-btn-integrar {
         background-color: #00DFC0;
@@ -203,7 +230,72 @@ function corredora_online_settings_page() {
         font-weight: 400;
         width: 100%;
     }
-    </style>
+
+    /* Tooltip personalizado */
+    [data-custom-tooltip] {
+        position: relative;
+    }
+    [data-custom-tooltip]:hover::after {
+        content: attr(data-custom-tooltip);
+        position: absolute;
+        top: -12px; /* Ajustado más cerca */
+        left: 0;
+        background: rgba(0,0,0,0.85);
+        color: #fff;
+        padding: 5px 8px;
+        border-radius: 5px;
+        font-size: 13px;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+    [disabled='disabled'] {
+        cursor: not-allowed;
+    }
+
+    .co-color-fields {
+        display: flex;
+        gap: 40px;
+        align-items: flex-start;
+        margin-top: 28px;
+    }
+    .co-color-field {
+        width: 50%;
+    }
+
+    /* Pequeño contenedor interno: color + hex code */
+    .co-color-field-inner {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .co-hex {
+        width: 100px;
+        padding: 6px 12px;
+        font-size: 14px;
+        border: 0px solid #BABABA;
+        border-radius: 12px;
+        background: #fff;
+        color: #313131;
+        box-sizing: border-box;
+    }
+
+    /* Field contenedor del radio + preview */
+    .co-radius-preview-wrapper {
+        margin-top: 24px;
+    }
+    .co-radius-field-container {
+        display: flex;
+        align-items: center;
+        gap: 16px; 
+    }
+    .co-radius-preview {
+        width: 48px;
+        height: 38px;
+        background-color: #eee;
+        border: none;
+    }
+</style>
+
 
     <!-- Toast -->
     <div id="co-toast-success">
@@ -231,7 +323,6 @@ function corredora_online_settings_page() {
 
                     <label for="corredora_id">ID Corredora</label>
                     <?php 
-                      // Enmascarar la clave actual:
                       $masked_api_key = str_repeat('*', max(0, strlen($stored_api_key) - 4)) . substr($stored_api_key, -4);
                     ?>
                     <input 
@@ -277,18 +368,17 @@ function corredora_online_settings_page() {
             </div>
         </div>
 
-        <!-- Caja 3: Tipografía y color corporativo -->
-        <div class="co-config-box" id="boxTipografia"><!-- sin disabled, no depende de la integracion -->
+        <!-- Caja 3: Tipografía + Colores + Radio -->
+        <div class="co-config-box" id="boxTipografia">
             <div class="co-config-box-header" data-target="tipografiaBox">
                 <span class="title-text">Colores y diseños corporativos</span>
             </div>
             <div class="co-config-box-content" id="tipografiaBox">
-                
-                <!-- Selección de tipografía -->
-                <label for="co_font_choice">Selecciona la tipografía que se usará en el plugin:</label>
-                <select name="co_font_choice" id="co_font_choice">
+
+                <!-- Selección de tipografía => 100% -->
+                <label for="co_font_choice">Selecciona una tipografía</label>
+                <select name="co_font_choice" id="co_font_choice" style="width:100%;">
                     <?php
-                    // Lista ampliada de fuentes populares
                     $font_list = array(
                         'Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Open Sans', 'Roboto',
                         'Lato', 'Montserrat', 'Nunito', 'Poppins', 'Tajawal', 'Raleway', 
@@ -302,21 +392,70 @@ function corredora_online_settings_page() {
                     ?>
                 </select>
 
-                <!-- (NUEVO) Vista previa de color corporativo -->
-                <div style="margin-top: 24px;">
-                    <label for="co_color_fondo">Color corporativo actual:</label>
-                    <input 
-                        type="color" 
-                        id="co_color_fondo" 
-                        value="<?php echo esc_attr($stored_color_fondo); ?>"
-                        disabled="disabled"
-                        style="width: 60px; height: 34px; cursor: not-allowed;"
-                        title="Para cambiar este campo, hazlo directamente desde Corredora Online"
-                    />
+                <!-- Dos campos de color (cada uno 50%) con input color + texto #XXXXXX -->
+                <div class="co-color-fields">
+                    <!-- Color corporativo -->
+                    <div class="co-color-field" data-custom-tooltip="Para cambiar este campo, hazlo directamente desde Corredora Online">
+                        <label for="co_color_fondo">Color corporativo</label>
+                        <div class="co-color-field-inner">
+                            <input 
+                                type="color" 
+                                id="co_color_fondo" 
+                                value="<?php echo esc_attr($stored_color_fondo); ?>"
+                                disabled="disabled"
+                            />
+                            <input
+                                type="text"
+                                class="co-hex"
+                                value="<?php echo esc_attr($stored_color_fondo); ?>"
+                                disabled="disabled"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Color de texto -->
+                    <div class="co-color-field" data-custom-tooltip="Para cambiar este campo, hazlo directamente desde Corredora Online">
+                        <label for="co_color_texto">Color de texto</label>
+                        <div class="co-color-field-inner">
+                            <input 
+                                type="color" 
+                                id="co_color_texto" 
+                                value="<?php echo esc_attr($stored_color_texto); ?>"
+                                disabled="disabled"
+                            />
+                            <input
+                                type="text"
+                                class="co-hex"
+                                value="<?php echo esc_attr($stored_color_texto); ?>"
+                                disabled="disabled"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Radio de los bordes -->
+                <div class="co-radius-preview-wrapper" data-custom-tooltip="Para cambiar este campo, hazlo directamente desde Corredora Online">
+                    <label for="co_border_radius" style="margin-top: 24px;">Radio de los bordes</label>
+                    <div class="co-radius-field-container">
+                        <!-- Preview a la izquierda, con border radius en todos los bordes -->
+                        <div 
+                            class="co-radius-preview" 
+                            style="border-radius: <?php echo esc_attr($stored_border_radius); ?>;"
+                        ></div>
+
+                        <!-- Text field con el valor del radius (ejemplo: '8px') -->
+                        <input
+                            type="text"
+                            id="co_border_radius"
+                            value="<?php echo esc_attr($stored_border_radius); ?>"
+                            disabled="disabled"
+                        />
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
 
     <script>
     (function(){
@@ -490,7 +629,7 @@ function corredora_online_settings_page() {
                 .then(r => r.json())
                 .then(data => {
                     if(data.success){
-                        mostrarToast('Se ha actualizado el Vendedor.');
+                        mostrarToast('Se ha actualizado el Vendedor');
                     } else {
                         alert('Error al guardar: ' + (data.data || 'Desconocido'));
                     }
@@ -519,7 +658,7 @@ function corredora_online_settings_page() {
                 .then(r => r.json())
                 .then(data => {
                     if(data.success){
-                        mostrarToast('Tipografía guardada correctamente.');
+                        mostrarToast('Tipografía guardada correctamente');
                     } else {
                         alert('Error al guardar: ' + (data.data || 'Desconocido'));
                     }
@@ -541,7 +680,7 @@ function corredora_online_settings_page() {
             toast.style.display = 'flex';
             setTimeout(() => {
                 toast.style.display = 'none';
-            }, 3000);
+            }, 5000);
         }
 
     })();
@@ -651,6 +790,7 @@ function ajax_guardar_tipografia_personalizada() {
     wp_send_json_success('Tipografía actualizada.');
 }
 add_action('wp_ajax_guardar_tipografia_personalizada', 'ajax_guardar_tipografia_personalizada');
+
 
 
 
