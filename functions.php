@@ -100,6 +100,8 @@ function corredora_online_settings_page() {
     $stored_corredora_id = trim(get_option('corredora_id'));
     // --- (NUEVO) Tipografía: obtener la tipografía guardada
     $stored_font_choice  = trim(get_option('co_font_choice'));
+    // (NUEVO) Obtenemos el color corporativo para mostrarlo sin permitir cambios
+    $stored_color_fondo  = trim(get_option('co-color-fondo', '#52868E'));
 
     $hay_integracion = (!empty($stored_api_key) && !empty($stored_corredora_id));
     ?>
@@ -170,7 +172,7 @@ function corredora_online_settings_page() {
     }
     .co-config-box-content label {
         display: block;
-        font-size: 15px;
+        font-size: 16px;
         margin-bottom: 10px;
     }
     .co-config-box-content input[type="text"],
@@ -192,11 +194,11 @@ function corredora_online_settings_page() {
         background-color: #00DFC0;
         border: none;
         border-radius: 50px;
-        padding: 12px 24px;
+        padding: 15px 0px;
         cursor: pointer;
         color: #090909;
         font-family: 'Nunito', sans-serif;
-        margin-top: 20px;
+        margin-top: 30px;
         font-size: 16px;
         font-weight: 400;
         width: 100%;
@@ -275,12 +277,14 @@ function corredora_online_settings_page() {
             </div>
         </div>
 
-        <!-- Caja 3: Tipografía personalizada (NUEVO) -->
+        <!-- Caja 3: Tipografía y color corporativo -->
         <div class="co-config-box" id="boxTipografia"><!-- sin disabled, no depende de la integracion -->
             <div class="co-config-box-header" data-target="tipografiaBox">
                 <span class="title-text">Colores y diseños corporativos</span>
             </div>
             <div class="co-config-box-content" id="tipografiaBox">
+                
+                <!-- Selección de tipografía -->
                 <label for="co_font_choice">Selecciona la tipografía que se usará en el plugin:</label>
                 <select name="co_font_choice" id="co_font_choice">
                     <?php
@@ -297,6 +301,19 @@ function corredora_online_settings_page() {
                     }
                     ?>
                 </select>
+
+                <!-- (NUEVO) Vista previa de color corporativo -->
+                <div style="margin-top: 24px;">
+                    <label for="co_color_fondo">Color corporativo actual:</label>
+                    <input 
+                        type="color" 
+                        id="co_color_fondo" 
+                        value="<?php echo esc_attr($stored_color_fondo); ?>"
+                        disabled="disabled"
+                        style="width: 60px; height: 34px; cursor: not-allowed;"
+                        title="Para cambiar este campo, hazlo directamente desde Corredora Online"
+                    />
+                </div>
             </div>
         </div>
     </div>
