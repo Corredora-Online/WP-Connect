@@ -1793,10 +1793,8 @@ function corredora_online_cotizador($atts)
                         var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
                         var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
 
-                        fetch(https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}&idc=${corredoraId}, {
-                            headers: {
-                                'X-API-KEY': apiKey
-                            }
+                        fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}&idc=${corredoraId}`, {
+                            headers: { 'X-API-KEY': apiKey }
                         })
                         .then(response => response.json())
                         .then(data => {
@@ -1851,10 +1849,8 @@ function corredora_online_cotizador($atts)
                         var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
                         var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
 
-                        fetch(https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}&idc=${corredoraId}, {
-                            headers: {
-                                'X-API-KEY': apiKey
-                            }
+                        fetch(`https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}&idc=${corredoraId}`, {
+                                headers: { 'X-API-KEY': apiKey }
                         })
                         .then(response => response.json())
                         .then(data => {
@@ -2582,5 +2578,345 @@ function corredora_online_estrella_html($promedio_num, $star_color = '#FFD700') 
     }
     return $html;
 }
+
+
+
+
+
+
+/**
+ * -----------------------------------------------------------
+ * 1) Función para obtener / actualizar las últimas 10 ventas
+ * -----------------------------------------------------------
+ *
+ * - Guarda en la BD la lista de las últimas 10 ventas.
+ * - Revisa si pasaron más de 10 días (864000 seg) desde el último fetch.
+ * - Llama a la API con ?limite=10&idc=XYZ y el header X-API-KEY,
+ *   forzamos en PHP a tomar solo los primeros 10 elementos.
+ */
+function co_get_latest_sales() {
+    $option_name = 'co_latest_sales_data';
+    $stored      = get_option($option_name);
+
+    // 10 días = 864000 seg
+    $needs_update = true;
+    if (is_array($stored) && isset($stored['last_update']) && isset($stored['sales'])) {
+        $time_diff = time() - intval($stored['last_update']);
+        if ($time_diff < 864000) {
+            $needs_update = false;
+        }
+    }
+
+    // Si NO se necesita update => retornamos la data guardada
+    if (!$needs_update) {
+        return $stored['sales'];
+    }
+
+    // Caso contrario, consultamos la API
+    $api_key       = get_option('api_key');
+    $corredora_id  = get_option('corredora_id');
+
+    if (empty($api_key) || empty($corredora_id)) {
+        // Sin credenciales => nada que hacer
+        return array();
+    }
+
+    // Construimos la URL con ?limite=10&idc=...
+    $url = 'https://atm.novelty8.com/webhook/api/corredora-online/polizas?limite=10';
+    $url = add_query_arg('idc', $corredora_id, $url);
+
+    $args = array(
+        'headers' => array('X-API-KEY' => $api_key),
+        'timeout' => 30
+    );
+
+    $response = wp_remote_get($url, $args);
+    if (is_wp_error($response)) {
+        return array(); // Error de conexión
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+    if (!is_array($data)) {
+        // Respuesta malformada
+        return array();
+    }
+
+    // Tomamos máximo 10
+    $sales_data = array();
+    $count      = 0;
+    foreach ($data as $item) {
+        if ($count >= 10) {
+            break;
+        }
+
+        // Leemos el tipo de cliente (Persona natural, Empresa, etc.)
+        $tipoCliente    = isset($item['Cliente']['Tipo'])   ? trim($item['Cliente']['Tipo'])   : '';
+        $nombreCompleto = isset($item['Cliente']['Nombre']) ? trim($item['Cliente']['Nombre']) : 'Sin nombre';
+
+        // Logica para formatear según sea Persona natural / Empresa
+        $nombre_formateado = formatear_nombre_por_tipo($nombreCompleto, $tipoCliente);
+
+        // Producto, Emisión (para 'tiempo_hace')
+        $producto    = isset($item['Producto']) ? $item['Producto'] : 'Producto desconocido';
+        $tiempo_hace = isset($item['Emisión'])  ? $item['Emisión']  : '';
+
+        $sales_data[] = array(
+            'nombre'   => $nombre_formateado,
+            'producto' => $producto,
+            'fecha'    => $tiempo_hace,
+        );
+        $count++;
+    }
+
+    // Guardamos la data
+    update_option($option_name, array(
+        'last_update' => time(),
+        'sales'       => $sales_data
+    ));
+
+    return $sales_data;
+}
+
+
+/**
+ * Función auxiliar para formatear el nombre según el tipo de cliente.
+ * - Si $tipo = "Persona natural", tomamos el primer nombre + inicial del primer apellido
+ *   Ejem: "Manuel Herrera Pérez" => "Manuel H."
+ * - Si $tipo = "Empresa", mostramos el nombreCompleto tal cual.
+ * - Si no calza, como fallback tomamos solo el primer nombre.
+ */
+function formatear_nombre_por_tipo($nombreCompleto, $tipo) {
+    $tipoLower = strtolower($tipo);
+
+    if ($tipoLower === 'persona natural') {
+        // Dividimos en partes
+        $partes = explode(' ', $nombreCompleto);
+        // Ejem: $partes = ["Manuel", "Herrera", "Pérez"]
+        if (count($partes) >= 2) {
+            $primerNombre  = $partes[0];
+            $primerApellido = $partes[1];
+            // Tomamos inicial del primer apellido
+            $inicialApellido = mb_substr($primerApellido, 0, 1);
+            return $primerNombre . ' ' . $inicialApellido . '.';
+        } else {
+            // Si no hay apellido en la cadena
+            return $nombreCompleto;
+        }
+    } elseif ($tipoLower === 'empresa') {
+        // Muestra el texto completo
+        return $nombreCompleto;
+    } else {
+        // Fallback: Tomar solo el primer nombre
+        $partes = explode(' ', $nombreCompleto);
+        return $partes[0];
+    }
+}
+
+
+/**
+ * -------------------------------------------------------------------------
+ * 2) Shortcode [Corredora_Online_SocialProof]
+ * -------------------------------------------------------------------------
+ * - Genera un contenedor .co-social-proof-container, ubicado abajo a la izquierda
+ * - Al hacer scroll >= 35%, se inicia el carrusel con fade in/out
+ * - Muestra “Hace X días” en vez de la fecha original
+ * - Producto se muestra en color corporativo
+ * - Se agrega un gap de 4s antes de mostrar la siguiente venta
+ */
+function co_social_proof_shortcode() {
+    // Obtenemos las ventas
+    $sales = co_get_latest_sales();
+
+    // Obtenemos el color corporativo guardado (o #52868E por defecto)
+    $color_corporativo = get_option('co-color-fondo', '#52868E');
+
+    ob_start();
+    ?>
+    <!-- Contenedor flotante de la prueba social (abajo a la izquierda) -->
+    <div class="co-social-proof-container"></div>
+
+    <style>
+      /* Aplica la tipografía dinámica al contenedor y a sus hijos */
+      <?php echo co_aplicar_tipografia('.co-social-proof-container, .co-social-proof-container *'); ?>
+
+      .co-social-proof-container {
+          position: fixed;
+          bottom: 16px;
+          left: 22px;
+          width: 330px;
+          z-index: 999999;
+
+          /* Por defecto oculto (opacity: 0). El 'display' se mantiene block
+             para que la animación de opacidad sea efectiva. */
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.5s ease-in-out;
+      }
+      /* Cuando agreguemos la clase 'visible', hacemos fade in */
+      .co-social-proof-container.visible {
+          opacity: 1;
+          pointer-events: auto;
+      }
+
+      .co-social-proof-box {
+          background-color: #ffffff;
+          border: 1px solid #ddd;
+          border-radius: 10px;
+          /* Sombra más borrosa */
+          box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+          padding: 18px 20px;
+          margin-bottom: 8px;
+          font-size: 14px;
+          color: #333;
+      }
+      .co-social-proof-name {
+          font-weight: 600;
+          margin-bottom: 2px;
+      }
+      /* Producto en color corporativo */
+      .co-social-proof-product {
+          font-weight: 400;
+          color: <?php echo esc_attr($color_corporativo); ?>;
+      }
+      .co-social-proof-time {
+          font-size: 12px;
+          color: #888;
+          margin-top: 6px;
+      }
+    </style>
+
+    <script>
+    (function(){
+        // Data de ventas proveniente de PHP
+        var salesData = <?php echo json_encode($sales); ?>;
+
+        // Tiempos configurables
+        var scrollThreshold = 0.35; // Mostrar cuando se haya scrolleado el 35%
+        var displayTime = 5000;     // 5 seg visible cada venta
+        var fadeDuration = 400;     // Duración de la transición (coincide con CSS 0.5s)
+        var gapTime = 4000;         // 4 seg de espera entre la desaparición y la siguiente
+
+        var container  = null;
+        var currentIndex = 0;
+        var showing = false; // Para no iniciar múltiples veces
+
+        document.addEventListener('DOMContentLoaded', function(){
+            container = document.querySelector('.co-social-proof-container');
+            if(!container) return;
+
+            // Si no hay ventas => no hacemos nada
+            if(!salesData || !salesData.length){
+                return;
+            }
+
+            // Escuchamos el scroll
+            window.addEventListener('scroll', onScrollCheck);
+        });
+
+        function onScrollCheck(){
+            var scrolled = window.scrollY + window.innerHeight;
+            var totalHeight = document.documentElement.scrollHeight;
+            var ratio = scrolled / totalHeight;
+
+            if(ratio >= scrollThreshold && !showing){
+                showing = true;
+                // Hacemos fade in del contenedor e iniciamos la secuencia
+                container.classList.add('visible');
+                showSale();
+            }
+        }
+
+        /**
+         * Parsea la fecha en formato dd/mm/yyyy y calcula "Hace X días"
+         */
+        function getTimeAgo(dateStr) {
+            // dateStr ej: "14/03/2025"
+            if(!dateStr) return '';
+            var parts = dateStr.split('/');
+            if(parts.length < 3) return '';
+
+            var day   = parseInt(parts[0], 10);
+            var month = parseInt(parts[1], 10);
+            var year  = parseInt(parts[2], 10);
+            if(!day || !month || !year) return '';
+
+            // JS: los meses van de 0..11
+            var dateEmision = new Date(year, month - 1, day);
+            var now = new Date();
+
+            // Diferencia en ms
+            var diffMs = now - dateEmision;
+            if(diffMs < 0) diffMs = 0; // por si es futura
+
+            // Convertimos a días
+            var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            if(diffDays <= 0) {
+                return 'Hoy';
+            } else if(diffDays === 1) {
+                return 'Hace 1 día';
+            } else {
+                return 'Hace ' + diffDays + ' días';
+            }
+        }
+
+        /**
+         * Muestra la venta actual por 'displayTime' ms,
+         * luego fade out, esperamos 'gapTime', y fade in con la siguiente venta
+         */
+        function showSale(){
+            if(currentIndex >= salesData.length){
+                currentIndex = 0; // reiniciamos
+            }
+            var sale = salesData[currentIndex];
+
+            // 1) Limpiamos contenido del contenedor
+            container.innerHTML = '';
+
+            // 2) Creamos cajita con los datos
+            var box = document.createElement('div');
+            box.className = 'co-social-proof-box';
+
+            var tiempoTexto = getTimeAgo(sale.fecha);
+
+            // Armamos el HTML
+            var html = '';
+            html += '<div class="co-social-proof-name">' + 
+                        (sale.nombre || 'Alguien') + 
+                    ' ha contratado</div>';
+            html += '<div class="co-social-proof-product">' + 
+                        (sale.producto || 'Seguro') + 
+                    '</div>';
+            if(tiempoTexto){
+                html += '<div class="co-social-proof-time">' + tiempoTexto + '</div>';
+            }
+
+            box.innerHTML = html;
+            container.appendChild(box);
+
+            // 3) Mostramos X seg, luego fade out
+            setTimeout(function(){
+                container.classList.remove('visible');
+
+                // Esperamos a que termine el fade out
+                setTimeout(function(){
+                    // Esperamos gapTime antes de la siguiente
+                    setTimeout(function(){
+                        currentIndex++;
+                        container.classList.add('visible');
+                        showSale();
+                    }, gapTime);
+                }, fadeDuration);
+            }, displayTime);
+        }
+    })();
+    </script>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('Corredora_Online_SocialProof', 'co_social_proof_shortcode');
+
+
 
 ?>
