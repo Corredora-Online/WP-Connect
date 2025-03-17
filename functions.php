@@ -105,6 +105,9 @@ function corredora_online_settings_page() {
     $stored_color_texto   = trim(get_option('co-color-texto', '#FFFFFF'));
     $stored_border_radius = trim(get_option('co-border-radius', '8px'));
 
+    // Nueva opción para mostrar/ocultar el popup de prueba social:
+    $stored_socialproof_status = get_option('co_socialproof_status', 'ocultar');
+
     $hay_integracion = (!empty($stored_api_key) && !empty($stored_corredora_id));
     ?>
 <style>
@@ -455,15 +458,29 @@ function corredora_online_settings_page() {
                 </div>
             </div>
         </div>
-    </div>
 
+        <!-- Caja 4: Popup de prueba social -->
+        <div class="co-config-box" id="boxSocialProof">
+            <div class="co-config-box-header" data-target="socialProofBox">
+                <span class="title-text">Popup de prueba social</span>
+            </div>
+            <div class="co-config-box-content" id="socialProofBox">
+                <label for="co_socialproof_status">Mostrar popup de prueba social en la web</label>
+                <select name="co_socialproof_status" id="co_socialproof_status">
+                    <option value="mostrar" <?php selected($stored_socialproof_status, 'mostrar'); ?>>Mostrar</option>
+                    <option value="ocultar" <?php selected($stored_socialproof_status, 'ocultar'); ?>>Ocultar</option>
+                </select>
+                <p class="description">El popup se mostrará en toda la web si se selecciona "Mostrar".</p>
+            </div>
+        </div>
+    </div>
 
     <script>
     (function(){
         let hayIntegracion = <?php echo $hay_integracion ? 'true' : 'false'; ?>;
 
         // -------------------------------------
-        // Toggle (abre/cierra)
+        // Toggle (abre/cierra) de cajas
         // -------------------------------------
         const headers = document.querySelectorAll('.co-config-box-header');
         headers.forEach(header => {
@@ -548,15 +565,12 @@ function corredora_online_settings_page() {
                     body: bodyData.toString()
                 });
 
-                // Si el status HTTP no es 200, lo consideramos falla
                 if (!response.ok) {
                     console.error('Respuesta HTTP no OK:', response.status, response.statusText);
                     return false;
                 }
 
-                // Si la respuesta es 200, parseamos JSON
                 const respData = await response.json();
-                // La API EXITOSA => { "estado": "exitoso", "mensaje": "Validación exitosa" }
                 if (respData && respData.estado === 'exitoso') {
                     return true;
                 } else {
@@ -590,7 +604,6 @@ function corredora_online_settings_page() {
                     selVendedor.innerHTML = '<option value="">-- Error --</option>';
                     return;
                 }
-                // data.data.usuarios => la lista
                 const vendedores = data.data.usuarios || [];
                 selVendedor.innerHTML = '<option value="">-- Seleccione un vendedor --</option>';
 
@@ -598,8 +611,6 @@ function corredora_online_settings_page() {
                     const opt = document.createElement('option');
                     opt.value = v.id;
                     opt.textContent = v.nombre + ' ' + v.apellido;
-
-                    // Si coincide con la opción guardada
                     if(v.id == '<?php echo esc_js(get_option("corredora_vendedor_id")); ?>'){
                         opt.selected = true;
                     }
@@ -614,13 +625,13 @@ function corredora_online_settings_page() {
         }
 
         // -------------------------------------
-        // Al cambiar el vendedor => guardamos via AJAX
+        // Al cambiar el vendedor => guardamos vía AJAX
         // -------------------------------------
         const selVend = document.getElementById('corredora_vendedor_id');
         if(selVend){
             selVend.addEventListener('change', function(){
                 const val = this.value;
-                if(!val) return; // si no es válido, no guardamos
+                if(!val) return;
 
                 const fData = new FormData();
                 fData.append('action', 'guardar_vendedor_cotizaciones');
@@ -672,6 +683,32 @@ function corredora_online_settings_page() {
         }
 
         // -------------------------------------
+        // (NUEVO) Al cambiar la opción del popup de prueba social
+        // -------------------------------------
+        const selSocialProof = document.getElementById('co_socialproof_status');
+        if(selSocialProof){
+            selSocialProof.addEventListener('change', function(){
+                const status = this.value;
+                const fData = new FormData();
+                fData.append('action', 'guardar_socialproof_status');
+                fData.append('status', status);
+                fetch(ajaxurl, { method: 'POST', body: fData })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.success){
+                        mostrarToast('Estado de popup actualizado');
+                    } else {
+                        alert('Error al actualizar: ' + (data.data || 'Desconocido'));
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error de conexión');
+                });
+            });
+        }
+
+        // -------------------------------------
         // Función para mostrar el toast
         // -------------------------------------
         function mostrarToast(mensaje){
@@ -690,7 +727,7 @@ function corredora_online_settings_page() {
 }
 
 // =========================================================
-// 3. Acciones AJAX: integrar, obtener vendedores, guardar vendedor, (NUEVO) guardar tipografía
+// 3. Acciones AJAX: integrar, obtener vendedores, guardar vendedor, (NUEVO) guardar tipografía y guardar estado popup
 // =========================================================
 
 // 3.1 Integrar (Caja 1)
@@ -703,7 +740,6 @@ function ajax_corredora_integrar_settings() {
     $api_key_input  = sanitize_text_field($_POST['api_key'] ?? '');
     $api_key_stored = get_option('api_key');
 
-    // Determinamos la API Key final
     $final_api_key = (strpos($api_key_input, '*') === false) 
         ? $api_key_input 
         : $api_key_stored;
@@ -712,7 +748,6 @@ function ajax_corredora_integrar_settings() {
         wp_send_json_error('Debes ingresar ID Corredora y API Key.');
     }
 
-    // Guardamos en WP (asumimos que ya validó en JS)
     update_option('corredora_id',  $corredora_id);
     update_option('api_key',       $final_api_key);
 
@@ -732,10 +767,8 @@ function ajax_obtener_vendedores_cotizador() {
         wp_send_json_error('No se ha integrado aún.');
     }
 
-    // Construimos la URL
     $url_usuarios = add_query_arg('idc', $stored_corredora_id, 'https://atm.novelty8.com/webhook/api/corredora-online/usuarios');
 
-    // Realizamos la petición
     $response = wp_remote_get($url_usuarios, array(
         'headers' => array('X-API-KEY' => $stored_api_key),
         'timeout' => 45
@@ -748,12 +781,11 @@ function ajax_obtener_vendedores_cotizador() {
     $body = wp_remote_retrieve_body($response);
     $data = json_decode($body, true);
 
-    // Aquí la respuesta real es un array con un objeto adentro, así que tomamos el primero:
-    if(!is_array($data) || !isset($data[0])) {
+    if(!is_array($data) || !isset($data[0])){
         wp_send_json_error('Respuesta de la API no es la esperada.');
     }
 
-    $primero = $data[0]; // <-- Primer objeto del array
+    $primero = $data[0];
 
     if (
         isset($primero['estado']) &&
@@ -791,6 +823,21 @@ function ajax_guardar_tipografia_personalizada() {
     wp_send_json_success('Tipografía actualizada.');
 }
 add_action('wp_ajax_guardar_tipografia_personalizada', 'ajax_guardar_tipografia_personalizada');
+
+// 3.5 (NUEVO) Guardar estado del popup de prueba social (Caja 4)
+function ajax_guardar_socialproof_status() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('No tienes permisos');
+    }
+    $status = sanitize_text_field($_POST['status'] ?? '');
+    if ($status !== 'mostrar' && $status !== 'ocultar') {
+        wp_send_json_error('Valor inválido');
+    }
+    update_option('co_socialproof_status', $status);
+    wp_send_json_success('Estado de popup de prueba social actualizado.');
+}
+add_action('wp_ajax_guardar_socialproof_status', 'ajax_guardar_socialproof_status');
+
 
 
 
@@ -2584,6 +2631,8 @@ function corredora_online_estrella_html($promedio_num, $star_color = '#FFD700') 
 
 
 
+
+
 /**
  * -----------------------------------------------------------
  * 1) Función para obtener / actualizar las últimas 10 ventas
@@ -2681,8 +2730,8 @@ function co_get_latest_sales() {
 
 /**
  * Función auxiliar para formatear el nombre según el tipo de cliente.
- * - Si $tipo = "Persona natural", tomamos el primer nombre + inicial del primer apellido
- *   Ejem: "Manuel Herrera Pérez" => "Manuel H."
+ * - Si $tipo = "Persona natural", tomamos el primer nombre + inicial del primer apellido.
+ *   Ej.: "Manuel Herrera Pérez" => "Manuel H."
  * - Si $tipo = "Empresa", mostramos el nombreCompleto tal cual.
  * - Si no calza, como fallback tomamos solo el primer nombre.
  */
@@ -2690,24 +2739,18 @@ function formatear_nombre_por_tipo($nombreCompleto, $tipo) {
     $tipoLower = strtolower($tipo);
 
     if ($tipoLower === 'persona natural') {
-        // Dividimos en partes
         $partes = explode(' ', $nombreCompleto);
-        // Ejem: $partes = ["Manuel", "Herrera", "Pérez"]
         if (count($partes) >= 2) {
-            $primerNombre  = $partes[0];
+            $primerNombre   = $partes[0];
             $primerApellido = $partes[1];
-            // Tomamos inicial del primer apellido
             $inicialApellido = mb_substr($primerApellido, 0, 1);
             return $primerNombre . ' ' . $inicialApellido . '.';
         } else {
-            // Si no hay apellido en la cadena
             return $nombreCompleto;
         }
     } elseif ($tipoLower === 'empresa') {
-        // Muestra el texto completo
         return $nombreCompleto;
     } else {
-        // Fallback: Tomar solo el primer nombre
         $partes = explode(' ', $nombreCompleto);
         return $partes[0];
     }
@@ -2716,24 +2759,23 @@ function formatear_nombre_por_tipo($nombreCompleto, $tipo) {
 
 /**
  * -------------------------------------------------------------------------
- * 2) Shortcode [Corredora_Online_SocialProof]
+ * Función para mostrar el Popup de Prueba Social en el front-end
  * -------------------------------------------------------------------------
- * - Genera un contenedor .co-social-proof-container, ubicado abajo a la izquierda
- * - Al hacer scroll >= 35%, se inicia el carrusel con fade in/out
- * - Muestra “Hace X días” en vez de la fecha original
- * - Producto se muestra en color corporativo
- * - Se agrega un gap de 4s antes de mostrar la siguiente venta
+ * - Obtiene las ventas (con data de la API).
+ * - Muestra un contenedor en la esquina inferior izquierda con fade in/out.
+ * - Muestra “Hace X días” en vez de la fecha original.
+ * - El producto se muestra en el color corporativo.
+ * - Se respeta un gap configurable entre ventas.
  */
 function co_social_proof_shortcode() {
     // Obtenemos las ventas
     $sales = co_get_latest_sales();
-
-    // Obtenemos el color corporativo guardado (o #52868E por defecto)
+    // Obtenemos el color corporativo (o #52868E por defecto)
     $color_corporativo = get_option('co-color-fondo', '#52868E');
 
     ob_start();
     ?>
-    <!-- Contenedor flotante de la prueba social (abajo a la izquierda) -->
+    <!-- Contenedor flotante del popup de prueba social -->
     <div class="co-social-proof-container"></div>
 
     <style>
@@ -2742,75 +2784,59 @@ function co_social_proof_shortcode() {
 
       .co-social-proof-container {
           position: fixed;
-          bottom: 16px;
-          left: 22px;
-          width: 330px;
+          bottom: 15px;
+          left: 20px;
+          width: 310px;
           z-index: 999999;
-
-          /* Por defecto oculto (opacity: 0). El 'display' se mantiene block
-             para que la animación de opacidad sea efectiva. */
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.5s ease-in-out;
       }
-      /* Cuando agreguemos la clase 'visible', hacemos fade in */
       .co-social-proof-container.visible {
           opacity: 1;
           pointer-events: auto;
       }
-
       .co-social-proof-box {
           background-color: #ffffff;
           border: 1px solid #ddd;
           border-radius: 10px;
-          /* Sombra más borrosa */
-          box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-          padding: 18px 20px;
+          /* Sombra menos intensa */
+          box-shadow: 0 4px 10px rgba(0,0,0,0.07);
+          padding: 16px 20px;
           margin-bottom: 8px;
           font-size: 14px;
           color: #333;
       }
       .co-social-proof-name {
           font-weight: 600;
-          margin-bottom: 2px;
+          color: #646464;
       }
-      /* Producto en color corporativo */
       .co-social-proof-product {
           font-weight: 400;
           color: <?php echo esc_attr($color_corporativo); ?>;
       }
       .co-social-proof-time {
           font-size: 12px;
-          color: #888;
-          margin-top: 6px;
+          color: #AFAFAF;
+          margin-top: 4px;
       }
     </style>
 
     <script>
     (function(){
-        // Data de ventas proveniente de PHP
         var salesData = <?php echo json_encode($sales); ?>;
-
-        // Tiempos configurables
-        var scrollThreshold = 0.35; // Mostrar cuando se haya scrolleado el 35%
-        var displayTime = 5000;     // 5 seg visible cada venta
-        var fadeDuration = 400;     // Duración de la transición (coincide con CSS 0.5s)
-        var gapTime = 4000;         // 4 seg de espera entre la desaparición y la siguiente
-
-        var container  = null;
+        var scrollThreshold = 0.35; // Mostrar al 35% de scroll
+        var displayTime = 5000;     // Tiempo visible de cada venta (ms)
+        var fadeDuration = 400;     // Duración de la transición (ms)
+        var gapTime = 2000;         // Tiempo de espera entre ventas (ms)
+        var container = null;
         var currentIndex = 0;
-        var showing = false; // Para no iniciar múltiples veces
+        var showing = false;
 
         document.addEventListener('DOMContentLoaded', function(){
             container = document.querySelector('.co-social-proof-container');
-            if(!container) return;
-
-            // Si no hay ventas => no hacemos nada
-            if(!salesData || !salesData.length){
-                return;
-            }
-
-            // Escuchamos el scroll
+            if (!container) return;
+            if (!salesData || !salesData.length) return;
             window.addEventListener('scroll', onScrollCheck);
         });
 
@@ -2818,90 +2844,51 @@ function co_social_proof_shortcode() {
             var scrolled = window.scrollY + window.innerHeight;
             var totalHeight = document.documentElement.scrollHeight;
             var ratio = scrolled / totalHeight;
-
-            if(ratio >= scrollThreshold && !showing){
+            if (ratio >= scrollThreshold && !showing) {
                 showing = true;
-                // Hacemos fade in del contenedor e iniciamos la secuencia
                 container.classList.add('visible');
                 showSale();
             }
         }
 
-        /**
-         * Parsea la fecha en formato dd/mm/yyyy y calcula "Hace X días"
-         */
         function getTimeAgo(dateStr) {
-            // dateStr ej: "14/03/2025"
-            if(!dateStr) return '';
+            if (!dateStr) return '';
             var parts = dateStr.split('/');
-            if(parts.length < 3) return '';
-
-            var day   = parseInt(parts[0], 10);
+            if (parts.length < 3) return '';
+            var day = parseInt(parts[0], 10);
             var month = parseInt(parts[1], 10);
-            var year  = parseInt(parts[2], 10);
-            if(!day || !month || !year) return '';
-
-            // JS: los meses van de 0..11
+            var year = parseInt(parts[2], 10);
+            if (!day || !month || !year) return '';
             var dateEmision = new Date(year, month - 1, day);
             var now = new Date();
-
-            // Diferencia en ms
             var diffMs = now - dateEmision;
-            if(diffMs < 0) diffMs = 0; // por si es futura
-
-            // Convertimos a días
+            if (diffMs < 0) diffMs = 0;
             var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-            if(diffDays <= 0) {
-                return 'Hoy';
-            } else if(diffDays === 1) {
-                return 'Hace 1 día';
-            } else {
-                return 'Hace ' + diffDays + ' días';
-            }
+            if (diffDays <= 0) return 'Hoy';
+            else if (diffDays === 1) return 'Hace 1 día';
+            else return 'Hace ' + diffDays + ' días';
         }
 
-        /**
-         * Muestra la venta actual por 'displayTime' ms,
-         * luego fade out, esperamos 'gapTime', y fade in con la siguiente venta
-         */
         function showSale(){
-            if(currentIndex >= salesData.length){
-                currentIndex = 0; // reiniciamos
+            if (currentIndex >= salesData.length) {
+                currentIndex = 0;
             }
             var sale = salesData[currentIndex];
-
-            // 1) Limpiamos contenido del contenedor
             container.innerHTML = '';
-
-            // 2) Creamos cajita con los datos
             var box = document.createElement('div');
             box.className = 'co-social-proof-box';
-
             var tiempoTexto = getTimeAgo(sale.fecha);
-
-            // Armamos el HTML
             var html = '';
-            html += '<div class="co-social-proof-name">' + 
-                        (sale.nombre || 'Alguien') + 
-                    ' ha contratado</div>';
-            html += '<div class="co-social-proof-product">' + 
-                        (sale.producto || 'Seguro') + 
-                    '</div>';
-            if(tiempoTexto){
+            html += '<div class="co-social-proof-name">' + (sale.nombre || 'Alguien') + ' ha contratado</div>';
+            html += '<div class="co-social-proof-product">' + (sale.producto || 'Seguro') + '</div>';
+            if (tiempoTexto) {
                 html += '<div class="co-social-proof-time">' + tiempoTexto + '</div>';
             }
-
             box.innerHTML = html;
             container.appendChild(box);
-
-            // 3) Mostramos X seg, luego fade out
             setTimeout(function(){
                 container.classList.remove('visible');
-
-                // Esperamos a que termine el fade out
                 setTimeout(function(){
-                    // Esperamos gapTime antes de la siguiente
                     setTimeout(function(){
                         currentIndex++;
                         container.classList.add('visible');
@@ -2915,7 +2902,18 @@ function co_social_proof_shortcode() {
     <?php
     return ob_get_clean();
 }
-add_shortcode('Corredora_Online_SocialProof', 'co_social_proof_shortcode');
+
+/**
+ * En lugar de depender de un shortcode, inyectamos el popup en el front-end
+ * si la opción "co_socialproof_status" está configurada como "mostrar".
+ */
+if ( get_option('co_socialproof_status') === 'mostrar' ) {
+    add_action('wp_footer', 'co_social_proof_display');
+}
+
+function co_social_proof_display() {
+    echo co_social_proof_shortcode();
+}
 
 
 
