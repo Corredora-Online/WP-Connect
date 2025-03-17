@@ -124,12 +124,12 @@ function corredora_online_settings_page() {
     /* Toast de éxito */
     #co-toast-success {
         position: fixed;
-        top: 52px;
-        right: 20px;
+        top: 51px;
+        right: 16px;
         background: #fff;
         border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 14px 16px;
+        border-radius: 10px;
+        padding: 19px 30px 19px 24px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         display: none;
         align-items: center;
@@ -141,6 +141,7 @@ function corredora_online_settings_page() {
     #co-toast-success .icon-check {
         color: #28a745;
         font-weight: bold;
+        padding-right: 6px;
     }
 
     /* Cajas (acordeones) */
@@ -238,7 +239,7 @@ function corredora_online_settings_page() {
     [data-custom-tooltip]:hover::after {
         content: attr(data-custom-tooltip);
         position: absolute;
-        top: -12px; /* Ajustado más cerca */
+        top: -12px;
         left: 0;
         background: rgba(0,0,0,0.85);
         color: #fff;
@@ -1389,7 +1390,6 @@ function procesar_peticion_valoraciones($data) {
 // Función para mostrar el formulario del cotizador
 function corredora_online_cotizador($atts)
 {
-    // Array de comunas por región, sin cambios
     $comunasPorRegion = array(
         'Arica y Parinacota' => ['Arica', 'Camarones', 'Putre', 'General Lagos'],
         'Tarapacá' => ['Iquique', 'Alto Hospicio', 'Pozo Almonte', 'Camiña', 'Colchane', 'Huara', 'Pica'],
@@ -1705,7 +1705,364 @@ function corredora_online_cotizador($atts)
     </div>
      
     <script type="text/javascript">
-    // ... Lógica JavaScript intacta ...
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // Declarar currentStep e iniciarlo en 1
+        var currentStep = 1;
+
+        var patenteInput = document.getElementById('patente');
+        var errorMessage = document.getElementById('error-message');
+        var rutInput = document.getElementById('rut');
+        var rutErrorMessage = document.getElementById('rut-error-message');
+        var nombreField = document.getElementById('nombre-field');
+        var apellidoField = document.getElementById('apellido-field');
+        var nombreInput = document.getElementById('nombre');
+        var apellidoInput = document.getElementById('apellido');
+        
+        var timeout = null;
+        var isPatenteValid = false;
+        var isRUTValid = false;
+
+        var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
+
+        function showLoading() {
+            document.getElementById('loading-indicator').style.display = 'block';
+        }
+    
+        function hideLoading() {
+            document.getElementById('loading-indicator').style.display = 'none';
+        }
+
+        // Función para validar el RUT
+        function validarRUT(rut) {
+            rut = rut.replace(/[.-]/g, '');
+            const dv = rut.slice(-1);
+            const rutCuerpo = rut.slice(0, -1);
+            let suma = 0;
+            let multiplicador = 2;
+
+            for (let i = rutCuerpo.length - 1; i >= 0; i--) {
+                suma += parseInt(rutCuerpo.charAt(i)) * multiplicador;
+                multiplicador = (multiplicador === 7) ? 2 : multiplicador + 1;
+            }
+
+            const dvCalculado = 11 - (suma % 11);
+            const dvEsperado = (dvCalculado === 11) ? '0' : (dvCalculado === 10 ? 'K' : dvCalculado.toString());
+            return dv.toUpperCase() === dvEsperado;
+        }
+
+        // Formateo de RUT en tiempo real
+        rutInput.addEventListener('input', function () {
+            var rut = this.value.trim().replace(/\./g, '').replace('-', '');
+            if (rut.length > 1) {
+                rut = rut.replace(/^(\d{1,9})(\d{3})(\d{3})(\w{1})$/, '$1.$2.$3-$4');
+            }
+            this.value = rut;
+        });
+
+        // Cambio de región => carga comunas
+        document.getElementById('region').addEventListener('change', function() {
+            var region = this.value;
+            var comunaSelect = document.getElementById('comuna');
+            comunaSelect.innerHTML = ''; // Limpiar opciones anteriores
+
+            if (region) {
+                var comunas = comunasPorRegion[region];
+                if (comunas && comunas.length > 0) {
+                    comunas.forEach(function(comuna) {
+                        var option = document.createElement('option');
+                        option.value = comuna;
+                        option.textContent = comuna;
+                        comunaSelect.appendChild(option);
+                    });
+                }
+            }
+        });
+
+        // Validar patente en tiempo real
+        patenteInput.addEventListener('input', function () {
+            clearTimeout(timeout);
+
+            if (this.value.replace(/-/g, '').length >= 4) {
+                timeout = setTimeout(function () {
+                    var patente = patenteInput.value;
+                    if (patente) {
+                        showLoading();
+                        document.body.classList.add('wait-cursor');
+
+                        var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                        var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+
+                        fetch(https://atm.novelty8.com/webhook/api/corredora-online/tools/vehiculo-info?patente=${patente}&idc=${corredoraId}, {
+                            headers: {
+                                'X-API-KEY': apiKey
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            hideLoading();
+                            document.body.classList.remove('wait-cursor');
+
+                            if (data.estado === "exitoso") {
+                                document.getElementById('marca').value = data.data.marca;
+                                document.getElementById('modelo').value = data.data.modelo;
+                                document.getElementById('año').value = data.data.año;
+                                // Asignar el valor del parámetro "tipo" (no "type") al campo oculto
+                                document.getElementById('tipoVehiculo').value = data.data.tipo;
+                                
+                                errorMessage.style.display = 'none';
+                                patenteInput.classList.remove('invalid-input');
+                                isPatenteValid = true;
+                                enableSubmitButton();
+                                showFields(['marca-field', 'modelo-field', 'año-field']);
+                            } else {
+                                errorMessage.textContent = 'La patente ingresada no es válida';
+                                errorMessage.style.display = 'block';
+                                patenteInput.classList.add('invalid-input');
+                                isPatenteValid = false;
+                                enableSubmitButton();
+                                hideFields(['marca-field', 'modelo-field', 'año-field']);
+                            }
+                        })
+                        .catch(error => {
+                            hideLoading();
+                            document.body.classList.remove('wait-cursor');
+                            console.error('Error al obtener los datos del vehículo:', error);
+                        });
+                    }
+                }, 1000);
+            }
+        });
+
+        // Validar RUT en tiempo real
+        rutInput.addEventListener('input', function () {
+            clearTimeout(timeout);
+
+            timeout = setTimeout(function () {
+                var rut = rutInput.value.trim().replace(/[\.\-]/g, '');
+                if (rut.length > 0) {
+                    if (validarRUT(rut)) {
+                        showLoading();
+                        rutInput.classList.remove('invalid-input');
+                        rutErrorMessage.style.display = 'none';
+                        
+                        document.body.classList.add('wait-cursor');
+
+                        var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                        var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+
+                        fetch(https://atm.novelty8.com/webhook/api/corredora-online/tools/persona-info?rut=${rut}&idc=${corredoraId}, {
+                            headers: {
+                                'X-API-KEY': apiKey
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            hideLoading();
+                            document.body.classList.remove('wait-cursor');
+
+                            if (data.estado === "exitoso") {
+                                // Si no hay nombre en la base, mostramos campos para que el usuario los rellene
+                                if (data.data.nombre === "**" || !data.data.nombre) {
+                                    nombreField.style.display = 'block';
+                                    apellidoField.style.display = 'block';
+                                    rutInput.classList.remove('invalid-input');
+                                    isRUTValid = true;
+                                } else {
+                                    isRUTValid = true;
+                                    var nombreCompleto = data.data.nombre.split(' ');
+                                    nombreInput.value = nombreCompleto[0] || '';
+                                    apellidoInput.value = nombreCompleto.slice(1).join(' ') || '';
+                                    nombreField.style.display = 'none';
+                                    apellidoField.style.display = 'none';
+                                    rutErrorMessage.style.display = 'none';
+                                    rutInput.classList.remove('invalid-input');
+                                }
+                            } else {
+                                nombreField.style.display = 'block';
+                                apellidoField.style.display = 'block';
+                                rutInput.classList.remove('invalid-input');
+                                isRUTValid = false;
+                            }
+                            updateSubmitButton();
+                        })
+                        .catch(error => {
+                            hideLoading();
+                            document.body.classList.remove('wait-cursor');
+
+                            rutErrorMessage.textContent = 'Error al obtener información del RUT';
+                            rutErrorMessage.style.display = 'block';
+                            nombreField.style.display = 'none';
+                            apellidoField.style.display = 'none';
+                            rutInput.classList.add('invalid-input');
+                            isRUTValid = false;
+                            updateSubmitButton();
+                        });
+                    } else {
+                        rutErrorMessage.textContent = 'El RUT ingresado no es válido';
+                        rutErrorMessage.style.display = 'block';
+                        nombreField.style.display = 'none';
+                        apellidoField.style.display = 'none';
+                        rutInput.classList.add('invalid-input');
+                        isRUTValid = false;
+                        updateSubmitButton();
+                    }
+                } else {
+                    rutErrorMessage.style.display = 'none';
+                    isRUTValid = false;
+                    updateSubmitButton();
+                }
+            }, 500);
+        });
+
+        // Función para detectar el tipo de cliente según el nombre y apellido
+        function detectarTipoCliente() {
+            var nombre = document.getElementById('nombre').value.trim();
+            var apellido = document.getElementById('apellido').value.trim();
+            var fullName = (nombre + " " + apellido).toUpperCase();
+            var regexEmpresa = /SPA|LIMITADA|LTDA|EIRL|S\.A\.?|S A\.?|SOCIEDAD ANÓNIMA|SOCIEDAD COMERCIAL|COMERCIAL/;
+            return regexEmpresa.test(fullName) ? "empresa" : "persona-natural";
+        }
+
+        // Habilitar / deshabilitar botón "Cotizar online"
+        function updateSubmitButton() {
+            var submitButton = document.getElementById('submit-button');
+            if (isPatenteValid && isRUTValid) {
+                submitButton.disabled = false;
+            } else {
+                submitButton.disabled = true;
+            }
+        }
+
+        function enableSubmitButton() {
+            var submitButton = document.getElementById('submit-button');
+            if (isPatenteValid && isRUTValid) {
+                submitButton.disabled = false;
+            } else {
+                submitButton.disabled = true;
+            }
+        }
+
+        // Botón para pasar del paso 1 al paso 2
+        document.querySelector('.next-step').addEventListener('click', function () {
+            var valid = true;
+            // Chequea campos requeridos en el paso 1
+            document.querySelectorAll('.step[data-step="1"] [required]').forEach(function (input) {
+                if (!input.value) {
+                    valid = false;
+                    input.focus();
+                }
+            });
+
+            if (valid && isPatenteValid) {
+                // Oculta paso 1, muestra paso 2
+                document.querySelector('.step[data-step="1"]').classList.remove('active');
+                document.querySelector('.step[data-step="2"]').classList.add('active');
+
+                document.querySelector('.step-title[data-step="1"]').classList.remove('active');
+                document.querySelector('.step-title[data-step="2"]').classList.add('active');
+
+                // Actualiza variable de control
+                currentStep = 2;
+            }
+        });
+
+        // Permite clickear en los títulos de paso si step <= currentStep
+        document.querySelectorAll('.step-title').forEach(function (title) {
+            title.addEventListener('click', function () {
+                var step = parseInt(this.getAttribute('data-step'));
+                if (step <= currentStep) {
+                    showStep(step);
+                    currentStep = step;
+                }
+            });
+        });
+
+        function showStep(step) {
+            document.querySelectorAll('.step').forEach(function (stepElement) {
+                stepElement.classList.remove('active');
+            });
+            document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
+
+            document.querySelectorAll('.step-title').forEach(function (title) {
+                title.classList.remove('active');
+            });
+            document.querySelector('.step-title[data-step="' + step + '"]').classList.add('active');
+        }
+
+        // Mostrar / ocultar fields
+        function showFields(fields) {
+            fields.forEach(field => {
+                document.getElementById(field).style.display = 'block';
+            });
+        }
+
+        function hideFields(fields) {
+            fields.forEach(field => {
+                document.getElementById(field).style.display = 'none';
+            });
+        }
+
+        // Envío final del formulario
+        document.getElementById('cotizador-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            if (isPatenteValid && isRUTValid) {
+                var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+                var producto = "347";
+                var idVendedor = "<?php echo esc_js(get_option('corredora_vendedor_id')); ?>";
+                var notificarCot = true;
+                
+                // Detectar dinámicamente el tipo de cliente usando la función
+                var tipoCliente = detectarTipoCliente();
+
+                var data = {
+                    producto: producto,
+                    idc: corredoraId,
+                    idVendedor: idVendedor,
+                    patenteVehiculo: document.getElementById('patente').value,
+                    marcaVehiculo: document.getElementById('marca').value,
+                    modeloVehiculo: document.getElementById('modelo').value,
+                    // Enviar además región, comuna, tipo de vehículo y el año (anoVehiculo)
+                    region: document.getElementById('region').value,
+                    comuna: document.getElementById('comuna').value,
+                    tipoVehiculo: document.getElementById('tipoVehiculo').value,
+                    anoVehiculo: document.getElementById('año').value,
+                    rut: document.getElementById('rut').value,
+                    'tipo-cliente': tipoCliente,
+                    nombre: document.getElementById('nombre').value,
+                    apellido: document.getElementById('apellido').value,
+                    email: document.getElementById('correo').value,
+                    celular: document.getElementById('telefono').value,
+                    notificar: notificarCot
+                };
+                
+                showLoading();
+
+                fetch('https://atm.novelty8.com/webhook/api/corredora-online/cotizaciones', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-KEY': apiKey
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(responseData => {
+                    hideLoading();
+                    alert('Solicitud enviada con éxito.');
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Error al enviar la solicitud:', error);
+                    alert('Hubo un error al enviar la solicitud.');
+                });
+            } else {
+                alert('Por favor, completa correctamente todos los campos.');
+            }
+        });
+    });
     </script>
     
     <?php
