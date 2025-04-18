@@ -1152,144 +1152,161 @@ function registrar_endpoint_personalizado() {
 add_action('rest_api_init', 'registrar_endpoint_personalizado');
 
 
-// Function para procesar solicitudes Pulse con query ?restRoute = "udpAseguradoras"
-function procesar_peticion_endpoint_personalizado($data) {
-    $corredora_id = get_option('corredora_id');
-    $api_key = get_option('api_key');
+function co_side_load_logo( $image_url, $post_id ) {
 
-    $url = 'https://atm.novelty8.com/webhook/api/corredora-online/aseguradoras';
-    $url = add_query_arg('idc', $corredora_id, $url);
+    if ( empty( $image_url ) ) {
+        return;
+    }
 
-    $args = array(
-        'headers' => array(
-            'X-API-KEY' => $api_key
-        )
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+
+    // 1. Descarga a un archivo temporal
+    $tmp = download_url( $image_url, 30 );          // 30 s timeout
+    if ( is_wp_error( $tmp ) ) {
+        error_log( 'Logo download error: ' . $tmp->get_error_message() );
+        return;
+    }
+
+    // 2. Prepara estructura tipo $_FILES
+    $file_array = array(
+        'name'     => basename( parse_url( $image_url, PHP_URL_PATH ) ),
+        'tmp_name' => $tmp,
     );
 
-    $response = wp_remote_get($url, $args);
+    // 3. Crea el adjunto y sus metadatos
+    $attach_id = media_handle_sideload( $file_array, $post_id );
 
-    if (is_wp_error($response)) {
-        $error_message = $response->get_error_message();
-        return new WP_REST_Response("Error: $error_message", 500);
+    // 4. Limpieza en caso de error
+    if ( is_wp_error( $attach_id ) ) {
+        @unlink( $tmp );
+        error_log( 'Logo attach error: ' . $attach_id->get_error_message() );
+        return;
     }
 
-    $body = wp_remote_retrieve_body($response);
-    $data = json_decode($body, true);
+    set_post_thumbnail( $post_id, $attach_id );
+}
 
-    if (!is_array($data) 
-        || !isset($data[0]['estado']) 
-        || $data[0]['estado'] !== 'exitoso'
-        || !isset($data[0]['aseguradoras'])) {
-        return new WP_REST_Response('Error: Respuesta no válida de la API.', 500);
+
+
+/**
+ * ---------------------------------------------------------------
+ * Endpoint ?restRoute=udpAseguradoras
+ * ---------------------------------------------------------------
+ *  – Crea / actualiza CPT “aseguradoras”
+ *  – Descarga los logotipos con la función superior
+ * ---------------------------------------------------------------
+ */
+function procesar_peticion_endpoint_personalizado( $request ) {
+
+    /* ───────── 1. Obtiene data desde la API ───────── */
+    $corredora_id = get_option( 'corredora_id' );
+    $api_key      = get_option( 'api_key' );
+
+    $url  = add_query_arg( 'idc', $corredora_id,
+              'https://atm.novelty8.com/webhook/api/corredora-online/aseguradoras' );
+
+    $resp = wp_remote_get( $url, array(
+        'headers' => array( 'X-API-KEY' => $api_key ),
+        'timeout' => 30,
+    ) );
+
+    if ( is_wp_error( $resp ) ) {
+        return new WP_REST_Response(
+            'Error: ' . $resp->get_error_message(), 500 );
     }
 
-    // Obtener IDs de las aseguradoras que vienen en la respuesta
-    $aseguradoras_ids = array_map(function($aseguradora) {
-        return $aseguradora['id'];
-    }, $data[0]['aseguradoras']);
+    $body = json_decode( wp_remote_retrieve_body( $resp ), true );
 
-    // Obtener todos los posts 'aseguradoras' existentes en WP
-    $existing_posts = get_posts(array(
+    if ( ! is_array( $body ) ||
+         ! isset( $body[0]['estado'], $body[0]['aseguradoras'] ) ||
+         $body[0]['estado'] !== 'exitoso' ) {
+
+        return new WP_REST_Response(
+            'Error: Respuesta no válida de la API.', 500 );
+    }
+
+    $aseguradoras_api = $body[0]['aseguradoras'];
+
+
+    /* ───────── 2. Sincroniza posts existentes ───────── */
+    $ids_api = wp_list_pluck( $aseguradoras_api, 'id' );
+
+    $existing_posts = get_posts( array(
         'post_type'   => 'aseguradoras',
         'numberposts' => -1,
         'post_status' => 'any',
-    ));
+    ) );
 
-    // Eliminar las aseguradoras que no aparezcan en la nueva respuesta
-    foreach ($existing_posts as $post) {
-        $post_id = $post->ID;
-        $id_aseguradora = get_post_meta($post_id, 'id_aseguradora', true);
+    foreach ( $existing_posts as $post ) {
+        $id_ext = get_post_meta( $post->ID, 'id_aseguradora', true );
 
-        if (!in_array($id_aseguradora, $aseguradoras_ids)) {
-            $thumbnail_id = get_post_thumbnail_id($post_id);
-            if ($thumbnail_id) {
-                wp_delete_attachment($thumbnail_id, true);
+        if ( ! in_array( $id_ext, $ids_api, true ) ) {
+            // borra logo asociado
+            if ( $thumb = get_post_thumbnail_id( $post->ID ) ) {
+                wp_delete_attachment( $thumb, true );
             }
-            wp_delete_post($post_id, true);
+            wp_delete_post( $post->ID, true );
         }
     }
 
-    // Crear o actualizar posts con la información recibida
-    foreach ($data[0]['aseguradoras'] as $aseguradora) {
-        $id_aseguradora = $aseguradora['id'];
 
-        // Verificar si ya existe un post con ese 'id_aseguradora'
-        $existing_post = get_posts(array(
-            'post_type' => 'aseguradoras',
-            'meta_key' => 'id_aseguradora',
-            'meta_value' => $id_aseguradora,
+    /* ───────── 3. Crea / actualiza y descarga logos ───────── */
+    foreach ( $aseguradoras_api as $aseg ) {
+
+        $id_ext   = $aseg['id'];
+        $nombre   = $aseg['nombre'];
+        $logo_url = $aseg['logotipo'];
+
+        // ¿Existe?
+        $post_id = 0;
+        $query   = get_posts( array(
+            'post_type'      => 'aseguradoras',
+            'meta_key'       => 'id_aseguradora',
+            'meta_value'     => $id_ext,
             'posts_per_page' => 1,
-        ));
+            'post_status'    => 'any',
+        ) );
 
-        if ($existing_post) {
-            // Si existe, lo actualizamos
-            $post_id = $existing_post[0]->ID;
-            wp_update_post(array(
+        if ( $query ) {
+            $post_id = $query[0]->ID;
+            wp_update_post( array(
                 'ID'         => $post_id,
-                'post_title' => wp_strip_all_tags($aseguradora['nombre']),
-            ));
+                'post_title' => wp_strip_all_tags( $nombre ),
+            ) );
         } else {
-            // Si no existe, lo creamos
-            $post_id = wp_insert_post(array(
-                'post_title'  => wp_strip_all_tags($aseguradora['nombre']),
+            $post_id = wp_insert_post( array(
+                'post_title'  => wp_strip_all_tags( $nombre ),
                 'post_type'   => 'aseguradoras',
-                'post_status' => 'publish'
-            ));
-
-            if (!is_wp_error($post_id)) {
-                update_post_meta($post_id, 'id_aseguradora', $id_aseguradora);
+                'post_status' => 'publish',
+            ) );
+            if ( ! is_wp_error( $post_id ) ) {
+                update_post_meta( $post_id, 'id_aseguradora', $id_ext );
             }
         }
 
-        // **Agregar o actualizar los nuevos meta fields**: 'enlace_de_pago' y 'enlace_siniestros'
-        update_post_meta($post_id, 'enlace_de_pago',      $aseguradora['enlace_de_pago']);
-        update_post_meta($post_id, 'enlace_siniestros',   $aseguradora['enlace_siniestros']);
+        /* --- Meta adicional --- */
+        update_post_meta( $post_id, 'enlace_de_pago',    $aseg['enlace_de_pago'] );
+        update_post_meta( $post_id, 'enlace_siniestros', $aseg['enlace_siniestros'] );
 
-        // Asignar (o no) la imagen destacada si no existe una
-        if (!empty($aseguradora['logotipo']) && !has_post_thumbnail($post_id)) {
-            $image_url = $aseguradora['logotipo'];
-            $image_name = basename($image_url);
-            $upload = wp_upload_bits($image_name, null, file_get_contents($image_url));
+        /* --- Logotipo --- */
+        $logo_faltante = ! has_post_thumbnail( $post_id );
+        if ( ! $logo_faltante ) {
+            // puede existir miniatura vacía (0 bytes)
+            $file = get_attached_file( get_post_thumbnail_id( $post_id ) );
+            $logo_faltante = ! file_exists( $file ) || filesize( $file ) === 0;
+        }
 
-            if (!$upload['error']) {
-                $file_path = $upload['file'];
-                $file_name = basename($file_path);
-                $file_type = wp_check_filetype($file_name, null);
-                $attachment_title = sanitize_file_name(pathinfo($file_name, PATHINFO_FILENAME));
-                $wp_upload_dir = wp_upload_dir();
-
-                $attachment = array(
-                    'guid'           => $wp_upload_dir['url'] . '/' . $file_name,
-                    'post_mime_type' => $file_type['type'],
-                    'post_title'     => $attachment_title,
-                    'post_content'   => '',
-                    'post_status'    => 'inherit'
-                );
-
-                $attach_id = wp_insert_attachment($attachment, $file_path, $post_id);
-
-                if (!is_wp_error($attach_id)) {
-                    require_once(ABSPATH . 'wp-admin/includes/image.php');
-                    $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
-                    wp_update_attachment_metadata($attach_id, $attach_data);
-                    set_post_thumbnail($post_id, $attach_id);
-                } else {
-                    // En caso de error, si es un post recién creado, lo borramos
-                    if (!$existing_post) {
-                        wp_delete_post($post_id, true);
-                    }
-                }
-            } else {
-                // En caso de error en upload
-                if (!$existing_post) {
-                    wp_delete_post($post_id, true);
-                }
-            }
+        if ( $logo_url && $logo_faltante ) {
+            co_side_load_logo( $logo_url, $post_id );
         }
     }
 
-    return new WP_REST_Response('OK', 200);
+    return new WP_REST_Response( 'OK', 200 );
 }
+
+
 
 
 // Function para procesar solicitudes Pulse con query ?restRoute = "udpInfoContacto"
