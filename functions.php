@@ -1,18 +1,5 @@
 <?php
 
-/**
- * =========================================================
- *  FUNCIÓN GENERAL PARA TIPOGRAFÍA DINÁMICA
- * =========================================================
- *
- * Esta función centraliza la configuración de la tipografía
- * elegida en Back Office (opción "co_font_choice") y genera
- * tanto el @import (si aplica) como la declaración del
- * "font-family" para el selector base que indiquemos.
- *
- * Úsala dentro de un <style> en cualquiera de los shortcodes
- * para evitar duplicaciones y simplificar.
- */
 function co_aplicar_tipografia($base_selector = '') {
     // Fuente seleccionada por el usuario (o 'Arial' por defecto).
     $chosen_font = get_option('co_font_choice', 'Arial');
@@ -1818,9 +1805,29 @@ function corredora_online_cotizador($atts)
         // Formateo de RUT en tiempo real
         rutInput.addEventListener('input', function () {
             var rut = this.value.trim().replace(/\./g, '').replace('-', '');
+            
             if (rut.length > 1) {
-                rut = rut.replace(/^(\d{1,9})(\d{3})(\d{3})(\w{1})$/, '$1.$2.$3-$4');
+                // Separar el dígito verificador del cuerpo del RUT
+                var cuerpo = rut.slice(0, -1);
+                var dv = rut.slice(-1);
+                
+                // Formatear el cuerpo agregando puntos cada 3 dígitos desde la derecha
+                var cuerpoFormateado = "";
+                for (var i = cuerpo.length - 1, j = 0; i >= 0; i--, j++) {
+                    if (j > 0 && j % 3 === 0) {
+                        cuerpoFormateado = "." + cuerpoFormateado;
+                    }
+                    cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+                }
+                
+                // Combinar cuerpo formateado con dígito verificador
+                if (dv && (dv.match(/[0-9kK]/))) {
+                    rut = cuerpoFormateado + "-" + dv.toUpperCase();
+                } else {
+                    rut = cuerpoFormateado;
+                }
             }
+            
             this.value = rut;
         });
 
@@ -2344,9 +2351,29 @@ function corredora_online_login_shortcode($atts) {
 
         function formatearRUT(input) {
             let rut = input.value.replace(/\\./g, "").replace(/-/g, "");
+            
             if (rut.length > 1) {
-                rut = rut.replace(/^(\\d{1,2})(\\d{3})(\\d{3})([\\dkK])?$/, "$1.$2.$3-$4");
+                // Separar el dígito verificador del cuerpo del RUT
+                let cuerpo = rut.slice(0, -1);
+                let dv = rut.slice(-1);
+                
+                // Formatear el cuerpo agregando puntos cada 3 dígitos desde la derecha
+                let cuerpoFormateado = "";
+                for (let i = cuerpo.length - 1, j = 0; i >= 0; i--, j++) {
+                    if (j > 0 && j % 3 === 0) {
+                        cuerpoFormateado = "." + cuerpoFormateado;
+                    }
+                    cuerpoFormateado = cuerpo[i] + cuerpoFormateado;
+                }
+                
+                // Combinar cuerpo formateado con dígito verificador
+                if (dv && (dv.match(/[0-9kK]/))) {
+                    rut = cuerpoFormateado + "-" + dv.toUpperCase();
+                } else {
+                    rut = cuerpoFormateado;
+                }
             }
+            
             input.value = rut;
         }
     </script>';
