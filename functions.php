@@ -2598,8 +2598,28 @@ function corredora_online_valoraciones_shortcode($atts) {
 
       .co-valoraciones-grid {
         display: grid;
-        grid-template-columns: repeat(<?php echo $columns; ?>, 1fr);
         gap: 22px;
+        /* Responsive grid: móvil 1 col, tablet 2 cols, desktop según parámetro */
+        grid-template-columns: 1fr;
+      }
+      
+      /* Media queries para responsividad */
+      @media (min-width: 576px) {
+        .co-valoraciones-grid {
+          grid-template-columns: repeat(<?php echo min(2, $columns); ?>, 1fr);
+        }
+      }
+      
+      @media (min-width: 768px) {
+        .co-valoraciones-grid {
+          grid-template-columns: repeat(<?php echo min(3, $columns); ?>, 1fr);
+        }
+      }
+      
+      @media (min-width: 992px) {
+        .co-valoraciones-grid {
+          grid-template-columns: repeat(<?php echo $columns; ?>, 1fr);
+        }
       }
       .co-valoracion-item {
         background-color: <?php echo esc_attr($box_bg); ?>;
