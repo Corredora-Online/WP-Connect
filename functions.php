@@ -1441,6 +1441,14 @@ function procesar_peticion_valoraciones($data) {
 // Función para mostrar el formulario del cotizador
 function corredora_online_cotizador($atts)
 {
+    // ============================================
+    // NUEVO: Generar ID único para esta instancia
+    // ============================================
+    static $instance_count = 0;
+    $instance_count++;
+    $unique_id = 'co-inst-' . $instance_count;
+    // ============================================
+
     $comunasPorRegion = array(
         'Arica y Parinacota' => ['Arica', 'Camarones', 'Putre', 'General Lagos'],
         'Tarapacá' => ['Iquique', 'Alto Hospicio', 'Pozo Almonte', 'Camiña', 'Colchane', 'Huara', 'Pica'],
@@ -1534,7 +1542,7 @@ function corredora_online_cotizador($atts)
             text-decoration: underline;
         }
 
-        #patente {
+        .cotizador-patente-input {
             text-transform: uppercase;
         }
 
@@ -1640,7 +1648,7 @@ function corredora_online_cotizador($atts)
             100% { transform: rotate(360deg); }
         }
 
-        #loading-indicator {
+        .co-loading-indicator {
             display: none; 
             position: fixed; 
             top: 0; 
@@ -1651,7 +1659,7 @@ function corredora_online_cotizador($atts)
             z-index: 9999; 
             border-radius: 20px;
         }
-        #loading-indicator > div {
+        .co-loading-indicator > div {
             position: absolute; 
             top: 50%; 
             left: 50%; 
@@ -1659,63 +1667,64 @@ function corredora_online_cotizador($atts)
         }
     </style>
 
-    <div id="loading-indicator">
-        <div>
-            <div class="spinner"></div>
-            <p>Cargando...</p>
+    <div id="cotizador-wrapper-<?php echo $unique_id; ?>" class="cotizador-wrapper">
+        <div id="loading-indicator-<?php echo $unique_id; ?>" class="co-loading-indicator">
+            <div>
+                <div class="spinner"></div>
+                <p>Cargando...</p>
+            </div>
         </div>
-    </div>
 
-    <div class="cotizador-form-container">
-        <div class="steps">
-            <div class="step-title active" data-step="1">1. Vehículo</div>
-            <div class="step-title" data-step="2">2. Contacto</div>
-        </div>
-        <form id="cotizador-form" action="<?php echo esc_url($_SERVER['REQUEST_URI']); ?>" method="post">
+        <div class="cotizador-form-container">
+            <div class="steps">
+                <div class="step-title active" data-step="1">1. Vehículo</div>
+                <div class="step-title" data-step="2">2. Contacto</div>
+            </div>
+            <form id="cotizador-form-<?php echo $unique_id; ?>" class="cotizador-form" action="<?php echo esc_url($_SERVER['REQUEST_URI']); ?>" method="post">
             <div class="step active" data-step="1">
                 <p>
-                    <label for="patente">Ingresa la patente</label>
-                    <input type="text" id="patente" name="patente" required placeholder="ABCD12">
-                    <span id="error-message" class="error-message" style="display: none;">La patente ingresada no es válida</span>
+                    <label for="patente-<?php echo $unique_id; ?>">Ingresa la patente</label>
+                    <input type="text" id="patente-<?php echo $unique_id; ?>" class="cotizador-patente-input" name="patente" required placeholder="ABCD12">
+                    <span id="error-message-<?php echo $unique_id; ?>" class="error-message" style="display: none;">La patente ingresada no es válida</span>
                 </p>
-                <p id="marca-field" style="display: none;">
-                    <label for="marca">Marca</label>
-                    <input type="text" id="marca" name="marca">
+                <p id="marca-field-<?php echo $unique_id; ?>" style="display: none;">
+                    <label for="marca-<?php echo $unique_id; ?>">Marca</label>
+                    <input type="text" id="marca-<?php echo $unique_id; ?>" name="marca">
                 </p>
-                <p id="modelo-field" style="display: none;">
-                    <label for="modelo">Modelo</label>
-                    <input type="text" id="modelo" name="modelo">
+                <p id="modelo-field-<?php echo $unique_id; ?>" style="display: none;">
+                    <label for="modelo-<?php echo $unique_id; ?>">Modelo</label>
+                    <input type="text" id="modelo-<?php echo $unique_id; ?>" name="modelo">
                 </p>
-                <p id="año-field" style="display: none;">
-                    <label for="año">Año</label>
-                    <input type="text" id="año" name="año">
+                <p id="año-field-<?php echo $unique_id; ?>" style="display: none;">
+                    <label for="año-<?php echo $unique_id; ?>">Año</label>
+                    <input type="text" id="año-<?php echo $unique_id; ?>" name="año">
                 </p>
                 <!-- Campo oculto para guardar el parámetro "tipo" obtenido de la API -->
-                <input type="hidden" id="tipoVehiculo" name="tipoVehiculo" value="">
+                <input type="hidden" id="tipoVehiculo-<?php echo $unique_id; ?>" name="tipoVehiculo" value="">
                 <p>
                     <button type="button" class="next-step">Siguiente</button>
                 </p>
             </div>
             <div class="step" data-step="2">
                 <p>
-                    <label for="rut">RUT</label>
-                    <input type="text" id="rut" name="rut" required maxlength="12" placeholder="12.345.678-9">
-                    <span id="rut-error-message" class="error-message" style="display: none;">El RUT ingresado no es válido</span>
+                    <label for="rut-<?php echo $unique_id; ?>">RUT</label>
+                    <input type="text" id="rut-<?php echo $unique_id; ?>" name="rut" required maxlength="12" placeholder="12.345.678-9">
+                    <span id="rut-error-message-<?php echo $unique_id; ?>" class="error-message" style="display: none;">El RUT ingresado no es válido</span>
                 </p>
                 <div class="row">
-                    <p class="half margin-bottom" id="nombre-field" style="display: none;">
-                        <label for="nombre">Nombre</label>
-                        <input type="text" id="nombre" name="nombre" required>
+                    <p class="half margin-bottom" id="nombre-field-<?php echo $unique_id; ?>" style="display: none;">
+                        <label for="nombre-<?php echo $unique_id; ?>">Nombre</label>
+                        <input type="text" id="nombre-<?php echo $unique_id; ?>" name="nombre" required>
                     </p>
-                    <p class="half margin-bottom" id="apellido-field" style="display: none;">
-                        <label for="apellido">Apellido</label>
-                        <input type="text" id="apellido" name="apellido" required>
+                    <p class="half margin-bottom" id="apellido-field-<?php echo $unique_id; ?>" style="display: none;">
+                        <label for="apellido-<?php echo $unique_id; ?>">Apellido</label>
+                        <input type="text" id="apellido-<?php echo $unique_id; ?>" name="apellido" required>
                     </p>
                 </div>
                 <div class="row" style="margin-bottom: -8px;">
                     <p class="half margin-bottom">
-                        <label for="region">Región</label>
-                        <select id="region" name="region" required>
+                        <label for="region-<?php echo $unique_id; ?>">Región</label>
+                        <select id="region-<?php echo $unique_id; ?>" name="region" required>
                             <option value="">Selecciona una región</option>
                             <option value="Arica y Parinacota">Región de Arica y Parinacota</option>
                             <option value="Tarapacá">Región de Tarapacá</option>
@@ -1724,7 +1733,7 @@ function corredora_online_cotizador($atts)
                             <option value="Coquimbo">Región de Coquimbo</option>
                             <option value="Valparaíso">Región de Valparaíso</option>
                             <option value="Metropolitana de Santiago">Región Metropolitana de Santiago</option>
-                            <option value="Libertador General Bernardo O’Higgins">Región del Libertador General Bernardo O’Higgins</option>
+                            <option value="Libertador General Bernardo O'Higgins">Región del Libertador General Bernardo O'Higgins</option>
                             <option value="Maule">Región del Maule</option>
                             <option value="Ñuble">Región de Ñuble</option>
                             <option value="Biobío">Región del Biobío</option>
@@ -1736,53 +1745,69 @@ function corredora_online_cotizador($atts)
                         </select>
                     </p>
                     <p class="half margin-bottom">
-                        <label for="comuna">Comuna</label>
-                        <select id="comuna" name="comuna" required></select>
+                        <label for="comuna-<?php echo $unique_id; ?>">Comuna</label>
+                        <select id="comuna-<?php echo $unique_id; ?>" name="comuna" required></select>
                     </p>
                 </div>
                 <p>
-                    <label for="correo">Correo</label>
-                    <input type="email" id="correo" name="correo" required placeholder="micorreo@gmail.com">
+                    <label for="correo-<?php echo $unique_id; ?>">Correo</label>
+                    <input type="email" id="correo-<?php echo $unique_id; ?>" name="correo" required placeholder="micorreo@gmail.com">
                 </p>
                 <p>
-                    <label for="telefono">Celular</label>
-                    <input type="text" id="telefono" name="telefono" required placeholder="+56911111111">
+                    <label for="telefono-<?php echo $unique_id; ?>">Celular</label>
+                    <input type="text" id="telefono-<?php echo $unique_id; ?>" name="telefono" required placeholder="+56911111111">
                 </p>
                 <p>
-                    <input type="submit" name="submit" value="Cotizar online" id="submit-button" disabled>
+                    <input type="submit" name="submit" value="Cotizar online" id="submit-button-<?php echo $unique_id; ?>" disabled>
                 </p>
             </div>
         </form>
+        </div>
     </div>
      
     <script type="text/javascript">
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
+        (function() {
+            // ============================================
+            // Encapsulamiento de esta instancia del cotizador
+            // ============================================
+            var instanceId = '<?php echo $unique_id; ?>';
+            
+            // Helper function para obtener elementos por ID de esta instancia
+            function getEl(baseId) {
+                return document.getElementById(baseId + '-' + instanceId);
+            }
 
-        // Declarar currentStep e iniciarlo en 1
-        var currentStep = 1;
+            // Obtener el contenedor wrapper de esta instancia
+            var wrapper = document.getElementById('cotizador-wrapper-' + instanceId);
+            if (!wrapper) return; // Salir si no existe el wrapper
+            
+            // Variables locales (no globales) para esta instancia
+            var currentStep = 1;
+            var timeout = null;
+            var isPatenteValid = false;
+            var isRUTValid = false;
 
-        var patenteInput = document.getElementById('patente');
-        var errorMessage = document.getElementById('error-message');
-        var rutInput = document.getElementById('rut');
-        var rutErrorMessage = document.getElementById('rut-error-message');
-        var nombreField = document.getElementById('nombre-field');
-        var apellidoField = document.getElementById('apellido-field');
-        var nombreInput = document.getElementById('nombre');
-        var apellidoInput = document.getElementById('apellido');
+            // Obtener todos los elementos del DOM usando el helper
+            var patenteInput = getEl('patente');
+            var errorMessage = getEl('error-message');
+            var rutInput = getEl('rut');
+            var rutErrorMessage = getEl('rut-error-message');
+            var nombreField = getEl('nombre-field');
+            var apellidoField = getEl('apellido-field');
+            var nombreInput = getEl('nombre');
+            var apellidoInput = getEl('apellido');
+            var loadingIndicator = getEl('loading-indicator');
+
+            var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
+
+            function showLoading() {
+                if (loadingIndicator) loadingIndicator.style.display = 'block';
+            }
         
-        var timeout = null;
-        var isPatenteValid = false;
-        var isRUTValid = false;
-
-        var comunasPorRegion = <?php echo json_encode($comunasPorRegion); ?>;
-
-        function showLoading() {
-            document.getElementById('loading-indicator').style.display = 'block';
-        }
-    
-        function hideLoading() {
-            document.getElementById('loading-indicator').style.display = 'none';
-        }
+            function hideLoading() {
+                if (loadingIndicator) loadingIndicator.style.display = 'none';
+            }
 
         // Función para validar el RUT
         function validarRUT(rut) {
@@ -1832,23 +1857,27 @@ function corredora_online_cotizador($atts)
         });
 
         // Cambio de región => carga comunas
-        document.getElementById('region').addEventListener('change', function() {
-            var region = this.value;
-            var comunaSelect = document.getElementById('comuna');
-            comunaSelect.innerHTML = ''; // Limpiar opciones anteriores
+        var regionSelect = getEl('region');
+        var comunaSelect = getEl('comuna');
+        
+        if (regionSelect && comunaSelect) {
+            regionSelect.addEventListener('change', function() {
+                var region = this.value;
+                comunaSelect.innerHTML = ''; // Limpiar opciones anteriores
 
-            if (region) {
-                var comunas = comunasPorRegion[region];
-                if (comunas && comunas.length > 0) {
-                    comunas.forEach(function(comuna) {
-                        var option = document.createElement('option');
-                        option.value = comuna;
-                        option.textContent = comuna;
-                        comunaSelect.appendChild(option);
-                    });
+                if (region) {
+                    var comunas = comunasPorRegion[region];
+                    if (comunas && comunas.length > 0) {
+                        comunas.forEach(function(comuna) {
+                            var option = document.createElement('option');
+                            option.value = comuna;
+                            option.textContent = comuna;
+                            comunaSelect.appendChild(option);
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // Validar patente en tiempo real
         patenteInput.addEventListener('input', function () {
@@ -1873,11 +1902,11 @@ function corredora_online_cotizador($atts)
                             document.body.classList.remove('wait-cursor');
 
                             if (data.estado === "exitoso") {
-                                document.getElementById('marca').value = data.data.marca;
-                                document.getElementById('modelo').value = data.data.modelo;
-                                document.getElementById('año').value = data.data.año;
+                                getEl('marca').value = data.data.marca;
+                                getEl('modelo').value = data.data.modelo;
+                                getEl('año').value = data.data.año;
                                 // Asignar el valor del parámetro "tipo" (no "type") al campo oculto
-                                document.getElementById('tipoVehiculo').value = data.data.tipo;
+                                getEl('tipoVehiculo').value = data.data.tipo;
                                 
                                 errorMessage.style.display = 'none';
                                 patenteInput.classList.remove('invalid-input');
@@ -1984,8 +2013,8 @@ function corredora_online_cotizador($atts)
 
         // Función para detectar el tipo de cliente según el nombre y apellido
         function detectarTipoCliente() {
-            var nombre = document.getElementById('nombre').value.trim();
-            var apellido = document.getElementById('apellido').value.trim();
+            var nombre = nombreInput.value.trim();
+            var apellido = apellidoInput.value.trim();
             var fullName = (nombre + " " + apellido).toUpperCase();
             var regexEmpresa = /SPA|LIMITADA|LTDA|EIRL|S\.A\.?|S A\.?|SOCIEDAD ANÓNIMA|SOCIEDAD COMERCIAL|COMERCIAL/;
             return regexEmpresa.test(fullName) ? "empresa" : "persona-natural";
@@ -1993,49 +2022,56 @@ function corredora_online_cotizador($atts)
 
         // Habilitar / deshabilitar botón "Cotizar online"
         function updateSubmitButton() {
-            var submitButton = document.getElementById('submit-button');
-            if (isPatenteValid && isRUTValid) {
-                submitButton.disabled = false;
-            } else {
-                submitButton.disabled = true;
+            var submitButton = getEl('submit-button');
+            if (submitButton) {
+                if (isPatenteValid && isRUTValid) {
+                    submitButton.disabled = false;
+                } else {
+                    submitButton.disabled = true;
+                }
             }
         }
 
         function enableSubmitButton() {
-            var submitButton = document.getElementById('submit-button');
-            if (isPatenteValid && isRUTValid) {
-                submitButton.disabled = false;
-            } else {
-                submitButton.disabled = true;
+            var submitButton = getEl('submit-button');
+            if (submitButton) {
+                if (isPatenteValid && isRUTValid) {
+                    submitButton.disabled = false;
+                } else {
+                    submitButton.disabled = true;
+                }
             }
         }
 
         // Botón para pasar del paso 1 al paso 2
-        document.querySelector('.next-step').addEventListener('click', function () {
-            var valid = true;
-            // Chequea campos requeridos en el paso 1
-            document.querySelectorAll('.step[data-step="1"] [required]').forEach(function (input) {
-                if (!input.value) {
-                    valid = false;
-                    input.focus();
+        var nextButton = wrapper.querySelector('.next-step');
+        if (nextButton) {
+            nextButton.addEventListener('click', function () {
+                var valid = true;
+                // Chequea campos requeridos en el paso 1
+                wrapper.querySelectorAll('.step[data-step="1"] [required]').forEach(function (input) {
+                    if (!input.value) {
+                        valid = false;
+                        input.focus();
+                    }
+                });
+
+                if (valid && isPatenteValid) {
+                    // Oculta paso 1, muestra paso 2
+                    wrapper.querySelector('.step[data-step="1"]').classList.remove('active');
+                    wrapper.querySelector('.step[data-step="2"]').classList.add('active');
+
+                    wrapper.querySelector('.step-title[data-step="1"]').classList.remove('active');
+                    wrapper.querySelector('.step-title[data-step="2"]').classList.add('active');
+
+                    // Actualiza variable de control
+                    currentStep = 2;
                 }
             });
-
-            if (valid && isPatenteValid) {
-                // Oculta paso 1, muestra paso 2
-                document.querySelector('.step[data-step="1"]').classList.remove('active');
-                document.querySelector('.step[data-step="2"]').classList.add('active');
-
-                document.querySelector('.step-title[data-step="1"]').classList.remove('active');
-                document.querySelector('.step-title[data-step="2"]').classList.add('active');
-
-                // Actualiza variable de control
-                currentStep = 2;
-            }
-        });
+        }
 
         // Permite clickear en los títulos de paso si step <= currentStep
-        document.querySelectorAll('.step-title').forEach(function (title) {
+        wrapper.querySelectorAll('.step-title').forEach(function (title) {
             title.addEventListener('click', function () {
                 var step = parseInt(this.getAttribute('data-step'));
                 if (step <= currentStep) {
@@ -2046,89 +2082,95 @@ function corredora_online_cotizador($atts)
         });
 
         function showStep(step) {
-            document.querySelectorAll('.step').forEach(function (stepElement) {
+            wrapper.querySelectorAll('.step').forEach(function (stepElement) {
                 stepElement.classList.remove('active');
             });
-            document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
+            wrapper.querySelector('.step[data-step="' + step + '"]').classList.add('active');
 
-            document.querySelectorAll('.step-title').forEach(function (title) {
+            wrapper.querySelectorAll('.step-title').forEach(function (title) {
                 title.classList.remove('active');
             });
-            document.querySelector('.step-title[data-step="' + step + '"]').classList.add('active');
+            wrapper.querySelector('.step-title[data-step="' + step + '"]').classList.add('active');
         }
 
         // Mostrar / ocultar fields
         function showFields(fields) {
             fields.forEach(field => {
-                document.getElementById(field).style.display = 'block';
+                var el = getEl(field);
+                if (el) el.style.display = 'block';
             });
         }
 
         function hideFields(fields) {
             fields.forEach(field => {
-                document.getElementById(field).style.display = 'none';
+                var el = getEl(field);
+                if (el) el.style.display = 'none';
             });
         }
 
         // Envío final del formulario
-        document.getElementById('cotizador-form').addEventListener('submit', function (event) {
-            event.preventDefault();
+        var cotizadorForm = getEl('cotizador-form');
+        if (cotizadorForm) {
+            cotizadorForm.addEventListener('submit', function (event) {
+                event.preventDefault();
 
-            if (isPatenteValid && isRUTValid) {
-                var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
-                var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
-                var producto = "347";
-                var idVendedor = "<?php echo esc_js(get_option('corredora_vendedor_id')); ?>";
-                var notificarCot = true;
-                
-                // Detectar dinámicamente el tipo de cliente usando la función
-                var tipoCliente = detectarTipoCliente();
+                if (isPatenteValid && isRUTValid) {
+                    var apiKey = '<?php echo esc_js(get_option('api_key')); ?>';
+                    var corredoraId = '<?php echo esc_js(get_option('corredora_id')); ?>';
+                    var producto = "347";
+                    var idVendedor = "<?php echo esc_js(get_option('corredora_vendedor_id')); ?>";
+                    var notificarCot = true;
+                    
+                    // Detectar dinámicamente el tipo de cliente usando la función
+                    var tipoCliente = detectarTipoCliente();
 
-                var data = {
-                    producto: producto,
-                    idc: corredoraId,
-                    idVendedor: idVendedor,
-                    patenteVehiculo: document.getElementById('patente').value,
-                    marcaVehiculo: document.getElementById('marca').value,
-                    modeloVehiculo: document.getElementById('modelo').value,
-                    // Enviar además región, comuna, tipo de vehículo y el año (anoVehiculo)
-                    region: document.getElementById('region').value,
-                    comuna: document.getElementById('comuna').value,
-                    tipoVehiculo: document.getElementById('tipoVehiculo').value,
-                    anoVehiculo: document.getElementById('año').value,
-                    rut: document.getElementById('rut').value,
-                    'tipo-cliente': tipoCliente,
-                    nombre: document.getElementById('nombre').value,
-                    apellido: document.getElementById('apellido').value,
-                    email: document.getElementById('correo').value,
-                    celular: document.getElementById('telefono').value,
-                    notificar: notificarCot
-                };
-                
-                showLoading();
+                    var data = {
+                        producto: producto,
+                        idc: corredoraId,
+                        idVendedor: idVendedor,
+                        patenteVehiculo: patenteInput.value,
+                        marcaVehiculo: getEl('marca').value,
+                        modeloVehiculo: getEl('modelo').value,
+                        // Enviar además región, comuna, tipo de vehículo y el año (anoVehiculo)
+                        region: getEl('region').value,
+                        comuna: getEl('comuna').value,
+                        tipoVehiculo: getEl('tipoVehiculo').value,
+                        anoVehiculo: getEl('año').value,
+                        rut: rutInput.value,
+                        'tipo-cliente': tipoCliente,
+                        nombre: nombreInput.value,
+                        apellido: apellidoInput.value,
+                        email: getEl('correo').value,
+                        celular: getEl('telefono').value,
+                        notificar: notificarCot
+                    };
+                    
+                    showLoading();
 
-                fetch('https://atm.novelty8.com/webhook/api/corredora-online/cotizaciones', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-KEY': apiKey
-                    },
-                    body: JSON.stringify(data)
-                })
-                .then(response => response.json())
-                .then(responseData => {
-                    hideLoading();
-                    alert('Solicitud enviada con éxito.');
-                })
-                .catch(error => {
-                    hideLoading();
-                    console.error('Error al enviar la solicitud:', error);
-                    alert('Hubo un error al enviar la solicitud.');
-                });
-            } else {
-                alert('Por favor, completa correctamente todos los campos.');
-            }
-        });
+                    fetch('https://atm.novelty8.com/webhook/api/corredora-online/cotizaciones', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-KEY': apiKey
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(responseData => {
+                        hideLoading();
+                        alert('Solicitud enviada con éxito.');
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        console.error('Error al enviar la solicitud:', error);
+                        alert('Hubo un error al enviar la solicitud.');
+                    });
+                } else {
+                    alert('Por favor, completa correctamente todos los campos.');
+                }
+            });
+        }
+        })();
     });
     </script>
     
