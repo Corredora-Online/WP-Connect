@@ -2514,9 +2514,27 @@ function corredora_online_aseguradoras_grid_styles() {
     <style>
     .aseguradoras-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 50px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
         align-items: start;
+    }
+    @media (min-width: 480px) {
+        .aseguradoras-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 24px;
+        }
+    }
+    @media (min-width: 768px) {
+        .aseguradoras-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 32px;
+        }
+    }
+    @media (min-width: 1024px) {
+        .aseguradoras-grid {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 40px;
+        }
     }
     .aseguradoras-grid-item {
         text-align: center;
