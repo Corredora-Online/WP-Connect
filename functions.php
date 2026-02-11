@@ -2896,6 +2896,52 @@ function co_social_proof_shortcode() {
     $sales = co_get_latest_sales();
     // Obtenemos el color corporativo (o #52868E por defecto)
     $color_corporativo = get_option('co-color-fondo', '#52868E');
+    $reviews = array();
+    $query_args = array(
+        'post_type'      => 'valoraciones',
+        'posts_per_page' => 5,
+        'post_status'    => 'publish',
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+        'meta_query'     => array(
+            array(
+                'key'     => 'promedio',
+                'value'   => 3,
+                'compare' => '>',
+                'type'    => 'NUMERIC',
+            ),
+        ),
+    );
+    $valoraciones_query = new WP_Query($query_args);
+    if ($valoraciones_query->have_posts()) {
+        while ($valoraciones_query->have_posts()) {
+            $valoraciones_query->the_post();
+            $nombre   = get_post_meta(get_the_ID(), 'nombre', true);
+            $apellido = get_post_meta(get_the_ID(), 'apellido', true);
+            $promedio = get_post_meta(get_the_ID(), 'promedio', true);
+            $promedio_num = floatval($promedio);
+            if ($promedio_num < 0) { $promedio_num = 0; }
+            if ($promedio_num > 5) { $promedio_num = 5; }
+            $rounded = round($promedio_num);
+            $stars = str_repeat('★', $rounded);
+            if ($rounded < 5) { $stars .= str_repeat('☆', 5 - $rounded); }
+            $primerNombre = trim($nombre);
+            if (strpos($primerNombre, ' ') !== false) {
+                $primerNombre = explode(' ', $primerNombre)[0];
+            }
+            $primerApellido = trim($apellido);
+            if (strpos($primerApellido, ' ') !== false) {
+                $primerApellido = explode(' ', $primerApellido)[0];
+            }
+            $inicialApellido = $primerApellido !== '' ? mb_substr($primerApellido, 0, 1) : '';
+            $masked_name = $primerNombre !== '' ? ($primerNombre . ($inicialApellido !== '' ? ' ' . strtoupper($inicialApellido) . '.' : '')) : 'Cliente';
+            $reviews[] = array(
+                'masked_name' => $masked_name,
+                'stars'  => $stars,
+            );
+        }
+        wp_reset_postdata();
+    }
 
     ob_start();
     ?>
@@ -2926,7 +2972,7 @@ function co_social_proof_shortcode() {
           border-radius: 10px;
           /* Sombra menos intensa */
           box-shadow: 0 4px 10px rgba(0,0,0,0.07);
-          padding: 16px 20px;
+          padding: 20px 20px;
           margin-bottom: 8px;
           font-size: 14px;
           color: #333;
@@ -2949,13 +2995,17 @@ function co_social_proof_shortcode() {
     <script>
     (function(){
         var salesData = <?php echo json_encode($sales); ?>;
+        var reviewsData = <?php echo json_encode($reviews); ?>;
         var scrollThreshold = 0.35; // Mostrar al 35% de scroll
         var displayTime = 5000;     // Tiempo visible de cada venta (ms)
         var fadeDuration = 400;     // Duración de la transición (ms)
         var gapTime = 2000;         // Tiempo de espera entre ventas (ms)
         var container = null;
         var currentIndex = 0;
+        var reviewIndex = 0;
         var showing = false;
+        var thresholdDays = 10;
+        var finished = false;
 
         document.addEventListener('DOMContentLoaded', function(){
             container = document.querySelector('.co-social-proof-container');
@@ -2972,30 +3022,42 @@ function co_social_proof_shortcode() {
                 showing = true;
                 container.classList.add('visible');
                 showSale();
+                window.removeEventListener('scroll', onScrollCheck);
             }
         }
 
-        function getTimeAgo(dateStr) {
-            if (!dateStr) return '';
+        function diffDaysFromDate(dateStr) {
+            if (!dateStr) return null;
             var parts = dateStr.split('/');
-            if (parts.length < 3) return '';
+            if (parts.length < 3) return null;
             var day = parseInt(parts[0], 10);
             var month = parseInt(parts[1], 10);
             var year = parseInt(parts[2], 10);
-            if (!day || !month || !year) return '';
+            if (!day || !month || !year) return null;
             var dateEmision = new Date(year, month - 1, day);
             var now = new Date();
             var diffMs = now - dateEmision;
             if (diffMs < 0) diffMs = 0;
             var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            if (diffDays <= 0) return 'Hoy';
-            else if (diffDays === 1) return 'Hace 1 día';
-            else return 'Hace ' + diffDays + ' días';
+            return diffDays;
+        }
+
+        function getTimeAgo(dateStr) {
+            var d = diffDaysFromDate(dateStr);
+            if (d === null) return '';
+            if (d > thresholdDays) return 'Recientemente';
+            if (d <= 0) return 'Hoy';
+            else if (d === 1) return 'Hace 1 día';
+            else return 'Hace ' + d + ' días';
         }
 
         function showSale(){
+            if (finished) return;
             if (currentIndex >= salesData.length) {
-                currentIndex = 0;
+                finished = true;
+                container.classList.remove('visible');
+                container.innerHTML = '';
+                return;
             }
             var sale = salesData[currentIndex];
             container.innerHTML = '';
@@ -3010,14 +3072,72 @@ function co_social_proof_shortcode() {
             }
             box.innerHTML = html;
             container.appendChild(box);
+            var d = diffDaysFromDate(sale.fecha);
+            var outdated = (d !== null && d > thresholdDays);
             setTimeout(function(){
                 container.classList.remove('visible');
                 setTimeout(function(){
-                    setTimeout(function(){
-                        currentIndex++;
-                        container.classList.add('visible');
-                        showSale();
-                    }, gapTime);
+                    if (outdated && reviewsData && reviewsData.length && reviewIndex < reviewsData.length) {
+                        setTimeout(function(){
+                            container.classList.add('visible');
+                            showReview();
+                        }, gapTime);
+                    } else {
+                        if ((currentIndex + 1) < salesData.length) {
+                            setTimeout(function(){
+                                currentIndex++;
+                                container.classList.add('visible');
+                                showSale();
+                            }, gapTime);
+                        } else {
+                            setTimeout(function(){
+                                finished = true;
+                                container.innerHTML = '';
+                            }, gapTime);
+                        }
+                    }
+                }, fadeDuration);
+            }, displayTime);
+        }
+
+        function showReview(){
+            if (finished) return;
+            var review = reviewsData[reviewIndex] || null;
+            reviewIndex++;
+            if (!review) {
+                if ((currentIndex + 1) < salesData.length) {
+                    currentIndex++;
+                    showSale();
+                } else {
+                    finished = true;
+                    container.classList.remove('visible');
+                    container.innerHTML = '';
+                }
+                return;
+            }
+            container.innerHTML = '';
+            var rbox = document.createElement('div');
+            rbox.className = 'co-social-proof-box';
+            var rhtml = '';
+            rhtml += '<div class="co-social-proof-name">' + (review.masked_name || 'Cliente') + ' ha valorado nuestra atención</div>';
+            rhtml += '<div class="co-social-proof-product">' + (review.stars || '') + '</div>';
+            rbox.innerHTML = rhtml;
+            container.appendChild(rbox);
+            setTimeout(function(){
+                container.classList.remove('visible');
+                setTimeout(function(){
+                    if ((currentIndex + 1) < salesData.length) {
+                        setTimeout(function(){
+                            currentIndex++;
+                            container.classList.add('visible');
+                            showSale();
+                        }, gapTime);
+                    } else {
+                        setTimeout(function(){
+                            finished = true;
+                            container.innerHTML = '';
+                        }, gapTime);
+                    }
                 }, fadeDuration);
             }, displayTime);
         }
