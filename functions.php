@@ -96,6 +96,7 @@ function corredora_online_settings_page() {
     $stored_socialproof_status = get_option('co_socialproof_status', 'ocultar');
 
     $hay_integracion = (!empty($stored_api_key) && !empty($stored_corredora_id));
+    $co_socialproof_nonce = wp_create_nonce('co_refresh_latest_sales_nonce');
     ?>
 <style>
     .custom-page {
@@ -458,6 +459,9 @@ function corredora_online_settings_page() {
                     <option value="ocultar" <?php selected($stored_socialproof_status, 'ocultar'); ?>>Ocultar</option>
                 </select>
                 <p class="description">El popup se mostrará en toda la web si se selecciona "Mostrar".</p>
+                <button type="button" class="co-btn-integrar" id="co_refresh_latest_sales" style="margin-top: 15px;">
+                    Actualizar ventas recientes
+                </button>
             </div>
         </div>
     </div>
@@ -465,6 +469,7 @@ function corredora_online_settings_page() {
     <script>
     (function(){
         let hayIntegracion = <?php echo $hay_integracion ? 'true' : 'false'; ?>;
+        const coSocialproofNonce = '<?php echo esc_js($co_socialproof_nonce); ?>';
 
         // -------------------------------------
         // Toggle (abre/cierra) de cajas
@@ -695,6 +700,38 @@ function corredora_online_settings_page() {
             });
         }
 
+        const refreshSalesButton = document.getElementById('co_refresh_latest_sales');
+        if(refreshSalesButton){
+            refreshSalesButton.addEventListener('click', function(){
+                const originalText = refreshSalesButton.textContent;
+                const fData = new FormData();
+                fData.append('action', 'co_refresh_latest_sales');
+                fData.append('nonce', coSocialproofNonce);
+
+                refreshSalesButton.disabled = true;
+                refreshSalesButton.textContent = 'Actualizando...';
+
+                fetch(ajaxurl, { method: 'POST', body: fData })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.success){
+                        const count = data.data && typeof data.data.count !== 'undefined' ? data.data.count : 0;
+                        mostrarToast('Ventas recientes actualizadas: ' + count);
+                    } else {
+                        alert('Error al actualizar ventas: ' + (data.data || 'Desconocido'));
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error de conexión');
+                })
+                .finally(() => {
+                    refreshSalesButton.disabled = false;
+                    refreshSalesButton.textContent = originalText;
+                });
+            });
+        }
+
         // -------------------------------------
         // Función para mostrar el toast
         // -------------------------------------
@@ -824,6 +861,24 @@ function ajax_guardar_socialproof_status() {
     wp_send_json_success('Estado de popup de prueba social actualizado.');
 }
 add_action('wp_ajax_guardar_socialproof_status', 'ajax_guardar_socialproof_status');
+
+function ajax_co_refresh_latest_sales() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('No tienes permisos');
+    }
+
+    check_ajax_referer('co_refresh_latest_sales_nonce', 'nonce');
+
+    $sales = co_refresh_latest_sales_cache(true);
+    if (is_wp_error($sales)) {
+        wp_send_json_error($sales->get_error_message());
+    }
+
+    wp_send_json_success(array(
+        'count' => count($sales),
+    ));
+}
+add_action('wp_ajax_co_refresh_latest_sales', 'ajax_co_refresh_latest_sales');
 
 
 
@@ -2757,44 +2812,87 @@ function corredora_online_estrella_html($promedio_num, $star_color = '#FFD700') 
 
 
 
-/**
- * -----------------------------------------------------------
- * 1) Función para obtener / actualizar las últimas 10 ventas
- * -----------------------------------------------------------
- *
- * - Guarda en la BD la lista de las últimas 10 ventas.
- * - Revisa si pasaron más de 10 días (864000 seg) desde el último fetch.
- * - Llama a la API con ?limite=10&idc=XYZ y el header X-API-KEY,
- *   forzamos en PHP a tomar solo los primeros 10 elementos.
- */
-function co_get_latest_sales() {
-    $option_name = 'co_latest_sales_data';
-    $stored      = get_option($option_name);
+if (!defined('CO_LATEST_SALES_CACHE_VERSION')) {
+    define('CO_LATEST_SALES_CACHE_VERSION', 2);
+}
 
-    // 10 días = 864000 seg
-    $needs_update = true;
-    if (is_array($stored) && isset($stored['last_update']) && isset($stored['sales'])) {
-        $time_diff = time() - intval($stored['last_update']);
-        if ($time_diff < 864000) {
-            $needs_update = false;
+function co_normalize_sale_item($item) {
+    if (!is_array($item)) {
+        return null;
+    }
+
+    $cliente = isset($item['Cliente']) && is_array($item['Cliente']) ? $item['Cliente'] : array();
+    $nombreCompleto = isset($cliente['Nombre']) ? trim(wp_strip_all_tags($cliente['Nombre'])) : '';
+    $producto = isset($item['Producto']) ? trim(wp_strip_all_tags($item['Producto'])) : '';
+
+    if (
+        $nombreCompleto === '' ||
+        $producto === '' ||
+        strcasecmp($nombreCompleto, 'Sin nombre') === 0 ||
+        strcasecmp($producto, 'Producto desconocido') === 0
+    ) {
+        return null;
+    }
+
+    $tipoCliente = isset($cliente['Tipo']) ? trim(wp_strip_all_tags($cliente['Tipo'])) : '';
+    $nombre_formateado = trim(wp_strip_all_tags(formatear_nombre_por_tipo($nombreCompleto, $tipoCliente)));
+
+    if ($nombre_formateado === '' || strcasecmp($nombre_formateado, 'Sin') === 0) {
+        return null;
+    }
+
+    $fecha = isset($item['Emisión']) ? trim(wp_strip_all_tags($item['Emisión'])) : '';
+
+    return array(
+        'nombre'   => $nombre_formateado,
+        'producto' => $producto,
+        'fecha'    => $fecha,
+    );
+}
+
+function co_filter_valid_sales($sales) {
+    if (!is_array($sales)) {
+        return array();
+    }
+
+    $valid_sales = array();
+    foreach ($sales as $sale) {
+        if (!is_array($sale)) {
+            continue;
         }
+
+        $nombre = isset($sale['nombre']) ? trim(wp_strip_all_tags($sale['nombre'])) : '';
+        $producto = isset($sale['producto']) ? trim(wp_strip_all_tags($sale['producto'])) : '';
+        $fecha = isset($sale['fecha']) ? trim(wp_strip_all_tags($sale['fecha'])) : '';
+
+        if (
+            $nombre === '' ||
+            $producto === '' ||
+            strcasecmp($nombre, 'Sin') === 0 ||
+            strcasecmp($nombre, 'Sin nombre') === 0 ||
+            strcasecmp($producto, 'Producto desconocido') === 0
+        ) {
+            continue;
+        }
+
+        $valid_sales[] = array(
+            'nombre'   => $nombre,
+            'producto' => $producto,
+            'fecha'    => $fecha,
+        );
     }
 
-    // Si NO se necesita update => retornamos la data guardada
-    if (!$needs_update) {
-        return $stored['sales'];
-    }
+    return $valid_sales;
+}
 
-    // Caso contrario, consultamos la API
+function co_fetch_latest_sales_from_api() {
     $api_key       = get_option('api_key');
     $corredora_id  = get_option('corredora_id');
 
     if (empty($api_key) || empty($corredora_id)) {
-        // Sin credenciales => nada que hacer
-        return array();
+        return new WP_Error('co_missing_credentials', 'No se ha integrado API Key e ID Corredora.');
     }
 
-    // Construimos la URL con ?limite=10&idc=...
     $url = 'https://atm.novelty8.com/webhook/api/corredora-online/polizas?limite=10';
     $url = add_query_arg('idc', $corredora_id, $url);
 
@@ -2805,50 +2903,98 @@ function co_get_latest_sales() {
 
     $response = wp_remote_get($url, $args);
     if (is_wp_error($response)) {
-        return array(); // Error de conexión
+        return $response;
     }
 
     $body = wp_remote_retrieve_body($response);
     $data = json_decode($body, true);
     if (!is_array($data)) {
-        // Respuesta malformada
-        return array();
+        return new WP_Error('co_invalid_sales_response', 'Respuesta no válida de la API de ventas.');
     }
 
-    // Tomamos máximo 10
     $sales_data = array();
-    $count      = 0;
     foreach ($data as $item) {
-        if ($count >= 10) {
+        if (count($sales_data) >= 10) {
             break;
         }
 
-        // Leemos el tipo de cliente (Persona natural, Empresa, etc.)
-        $tipoCliente    = isset($item['Cliente']['Tipo'])   ? trim($item['Cliente']['Tipo'])   : '';
-        $nombreCompleto = isset($item['Cliente']['Nombre']) ? trim($item['Cliente']['Nombre']) : 'Sin nombre';
-
-        // Logica para formatear según sea Persona natural / Empresa
-        $nombre_formateado = formatear_nombre_por_tipo($nombreCompleto, $tipoCliente);
-
-        // Producto, Emisión (para 'tiempo_hace')
-        $producto    = isset($item['Producto']) ? $item['Producto'] : 'Producto desconocido';
-        $tiempo_hace = isset($item['Emisión'])  ? $item['Emisión']  : '';
-
-        $sales_data[] = array(
-            'nombre'   => $nombre_formateado,
-            'producto' => $producto,
-            'fecha'    => $tiempo_hace,
-        );
-        $count++;
+        $sale = co_normalize_sale_item($item);
+        if ($sale) {
+            $sales_data[] = $sale;
+        }
     }
 
-    // Guardamos la data
-    update_option($option_name, array(
-        'last_update' => time(),
-        'sales'       => $sales_data
-    ));
-
     return $sales_data;
+}
+
+function co_refresh_latest_sales_cache($replace_with_empty = false) {
+    $option_name = 'co_latest_sales_data';
+    $current_valid_sales = array();
+    $stored = get_option($option_name);
+
+    if (is_array($stored) && isset($stored['last_update']) && isset($stored['sales'])) {
+        $current_valid_sales = co_filter_valid_sales($stored['sales']);
+    }
+
+    $fresh_sales = co_fetch_latest_sales_from_api();
+
+    if (is_wp_error($fresh_sales)) {
+        return $fresh_sales;
+    }
+
+    if (!empty($fresh_sales) || empty($current_valid_sales) || $replace_with_empty) {
+        update_option($option_name, array(
+            'last_update' => time(),
+            'version'     => CO_LATEST_SALES_CACHE_VERSION,
+            'sales'       => $fresh_sales
+        ));
+    }
+
+    return $fresh_sales;
+}
+
+/**
+ * -----------------------------------------------------------
+ * 1) Función para obtener / actualizar las últimas 10 ventas
+ * -----------------------------------------------------------
+ *
+ * - Guarda en la BD la lista de las últimas 10 ventas válidas.
+ * - Revisa si pasaron más de 10 días (864000 seg) desde el último fetch.
+ * - Fuerza refresh cuando detecta cache antiguo o contaminado.
+ */
+function co_get_latest_sales() {
+    $option_name = 'co_latest_sales_data';
+    $stored      = get_option($option_name);
+
+    $stored_sales = array();
+    $valid_cached_sales = array();
+    $has_cache_shape = is_array($stored) && isset($stored['last_update']) && isset($stored['sales']);
+
+    if ($has_cache_shape) {
+        $stored_sales = is_array($stored['sales']) ? $stored['sales'] : array();
+        $valid_cached_sales = co_filter_valid_sales($stored_sales);
+    }
+
+    $cache_version = $has_cache_shape && isset($stored['version']) ? intval($stored['version']) : 0;
+    $cache_is_fresh = $has_cache_shape && (time() - intval($stored['last_update']) < 864000);
+    $cache_had_invalid_sales = $has_cache_shape && count($valid_cached_sales) !== count($stored_sales);
+    $needs_update = !$has_cache_shape || !$cache_is_fresh || $cache_version < CO_LATEST_SALES_CACHE_VERSION || $cache_had_invalid_sales;
+
+    if (!$needs_update) {
+        return $valid_cached_sales;
+    }
+
+    $fresh_sales = co_refresh_latest_sales_cache();
+
+    if (is_wp_error($fresh_sales)) {
+        return $valid_cached_sales;
+    }
+
+    if (empty($fresh_sales) && !empty($valid_cached_sales)) {
+        return $valid_cached_sales;
+    }
+
+    return $fresh_sales;
 }
 
 
@@ -2992,37 +3138,36 @@ function co_social_proof_shortcode() {
       }
     </style>
 
-    <script>
-    (function(){
-        var salesData = <?php echo json_encode($sales); ?>;
-        var reviewsData = <?php echo json_encode($reviews); ?>;
-        var scrollThreshold = 0.35; // Mostrar al 35% de scroll
-        var displayTime = 5000;     // Tiempo visible de cada venta (ms)
-        var fadeDuration = 400;     // Duración de la transición (ms)
-        var gapTime = 2000;         // Tiempo de espera entre ventas (ms)
-        var container = null;
-        var currentIndex = 0;
-        var reviewIndex = 0;
-        var showing = false;
-        var thresholdDays = 10;
-        var finished = false;
+	<script>
+	(function(){
+	    var salesData = <?php echo wp_json_encode($sales); ?> || [];
+	    var reviewsData = <?php echo wp_json_encode($reviews); ?> || [];
+	    var scrollThreshold = 0.35; // Mostrar al 35% de scroll
+	    var displayTime = 5000;     // Tiempo visible de cada venta (ms)
+	    var fadeDuration = 400;     // Duración de la transición (ms)
+	    var gapTime = 2000;         // Tiempo de espera entre ventas (ms)
+	    var container = null;
+	    var currentIndex = 0;
+	    var reviewIndex = 0;
+	    var showing = false;
+	    var thresholdDays = 10;
 
-        document.addEventListener('DOMContentLoaded', function(){
-            container = document.querySelector('.co-social-proof-container');
-            if (!container) return;
-            if (!salesData || !salesData.length) return;
-            window.addEventListener('scroll', onScrollCheck);
-        });
+	    document.addEventListener('DOMContentLoaded', function(){
+	        container = document.querySelector('.co-social-proof-container');
+	        if (!container) return;
+	        if ((!salesData || !salesData.length) && (!reviewsData || !reviewsData.length)) return;
+	        window.addEventListener('scroll', onScrollCheck);
+	    });
 
         function onScrollCheck(){
             var scrolled = window.scrollY + window.innerHeight;
             var totalHeight = document.documentElement.scrollHeight;
             var ratio = scrolled / totalHeight;
-            if (ratio >= scrollThreshold && !showing) {
-                showing = true;
-                container.classList.add('visible');
-                showSale();
-                window.removeEventListener('scroll', onScrollCheck);
+	        if (ratio >= scrollThreshold && !showing) {
+	            showing = true;
+	            container.classList.add('visible');
+	            showSale();
+	            window.removeEventListener('scroll', onScrollCheck);
             }
         }
 
@@ -3047,102 +3192,97 @@ function co_social_proof_shortcode() {
             if (d === null) return '';
             if (d > thresholdDays) return 'Recientemente';
             if (d <= 0) return 'Hoy';
-            else if (d === 1) return 'Hace 1 día';
-            else return 'Hace ' + d + ' días';
-        }
+	        else if (d === 1) return 'Hace 1 día';
+	        else return 'Hace ' + d + ' días';
+	    }
 
-        function showSale(){
-            if (finished) return;
-            if (currentIndex >= salesData.length) {
-                finished = true;
-                container.classList.remove('visible');
-                container.innerHTML = '';
-                return;
-            }
-            var sale = salesData[currentIndex];
-            container.innerHTML = '';
-            var box = document.createElement('div');
-            box.className = 'co-social-proof-box';
-            var tiempoTexto = getTimeAgo(sale.fecha);
-            var html = '';
-            html += '<div class="co-social-proof-name">' + (sale.nombre || 'Alguien') + ' ha contratado</div>';
-            html += '<div class="co-social-proof-product">' + (sale.producto || 'Seguro') + '</div>';
-            if (tiempoTexto) {
-                html += '<div class="co-social-proof-time">' + tiempoTexto + '</div>';
-            }
-            box.innerHTML = html;
-            container.appendChild(box);
-            var d = diffDaysFromDate(sale.fecha);
-            var outdated = (d !== null && d > thresholdDays);
-            setTimeout(function(){
-                container.classList.remove('visible');
-                setTimeout(function(){
-                    if (outdated && reviewsData && reviewsData.length && reviewIndex < reviewsData.length) {
-                        setTimeout(function(){
-                            container.classList.add('visible');
-                            showReview();
-                        }, gapTime);
-                    } else {
-                        if ((currentIndex + 1) < salesData.length) {
-                            setTimeout(function(){
-                                currentIndex++;
-                                container.classList.add('visible');
-                                showSale();
-                            }, gapTime);
-                        } else {
-                            setTimeout(function(){
-                                finished = true;
-                                container.innerHTML = '';
-                            }, gapTime);
-                        }
-                    }
-                }, fadeDuration);
-            }, displayTime);
-        }
+	    function isOutdated(dateStr) {
+	        var d = diffDaysFromDate(dateStr);
+	        return d !== null && d > thresholdDays;
+	    }
 
-        function showReview(){
-            if (finished) return;
-            var review = reviewsData[reviewIndex] || null;
-            reviewIndex++;
-            if (!review) {
-                if ((currentIndex + 1) < salesData.length) {
-                    currentIndex++;
-                    showSale();
-                } else {
-                    finished = true;
-                    container.classList.remove('visible');
-                    container.innerHTML = '';
-                }
-                return;
-            }
-            container.innerHTML = '';
-            var rbox = document.createElement('div');
-            rbox.className = 'co-social-proof-box';
-            var rhtml = '';
-            rhtml += '<div class="co-social-proof-name">' + (review.masked_name || 'Cliente') + ' ha valorado nuestra atención</div>';
-            rhtml += '<div class="co-social-proof-product">' + (review.stars || '') + '</div>';
-            rbox.innerHTML = rhtml;
-            container.appendChild(rbox);
-            setTimeout(function(){
-                container.classList.remove('visible');
-                setTimeout(function(){
-                    if ((currentIndex + 1) < salesData.length) {
-                        setTimeout(function(){
-                            currentIndex++;
-                            container.classList.add('visible');
-                            showSale();
-                        }, gapTime);
-                    } else {
-                        setTimeout(function(){
-                            finished = true;
-                            container.innerHTML = '';
-                        }, gapTime);
-                    }
-                }, fadeDuration);
-            }, displayTime);
-        }
-    })();
-    </script>
+	    function appendText(className, text, parent) {
+	        var element = document.createElement('div');
+	        element.className = className;
+	        element.textContent = text || '';
+	        parent.appendChild(element);
+	        return element;
+	    }
+
+	    function clearContainer() {
+	        while (container.firstChild) {
+	            container.removeChild(container.firstChild);
+	        }
+	    }
+
+	    function scheduleNext(callback) {
+	        setTimeout(function(){
+	            container.classList.remove('visible');
+	            setTimeout(function(){
+	                clearContainer();
+	                setTimeout(function(){
+	                    container.classList.add('visible');
+	                    callback();
+	                }, gapTime);
+	            }, fadeDuration);
+	        }, displayTime);
+	    }
+
+	    function showSale(){
+	        if (!salesData || !salesData.length) {
+	            showReview();
+	            return;
+	        }
+
+	        var sale = salesData[currentIndex % salesData.length];
+	        currentIndex++;
+	        clearContainer();
+
+	        var box = document.createElement('div');
+	        box.className = 'co-social-proof-box';
+	        var tiempoTexto = getTimeAgo(sale.fecha);
+
+	        appendText('co-social-proof-name', (sale.nombre || 'Alguien') + ' ha contratado', box);
+	        appendText('co-social-proof-product', sale.producto || 'Seguro', box);
+	        if (tiempoTexto) {
+	            appendText('co-social-proof-time', tiempoTexto, box);
+	        }
+
+	        container.appendChild(box);
+
+	        scheduleNext(function(){
+	            if (isOutdated(sale.fecha) && reviewsData && reviewsData.length) {
+	                showReview();
+	            } else {
+	                showSale();
+	            }
+	        });
+	    }
+
+	    function showReview(){
+	        if (!reviewsData || !reviewsData.length) {
+	            showSale();
+	            return;
+	        }
+
+	        var review = reviewsData[reviewIndex % reviewsData.length];
+	        reviewIndex++;
+	        clearContainer();
+
+	        var rbox = document.createElement('div');
+	        rbox.className = 'co-social-proof-box';
+
+	        appendText('co-social-proof-name', (review.masked_name || 'Cliente') + ' ha valorado nuestra atención', rbox);
+	        appendText('co-social-proof-product', review.stars || '', rbox);
+
+	        container.appendChild(rbox);
+
+	        scheduleNext(function(){
+	            showSale();
+	        });
+	    }
+	})();
+	</script>
     <?php
     return ob_get_clean();
 }
